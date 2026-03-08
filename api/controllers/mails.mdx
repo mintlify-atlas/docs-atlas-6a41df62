@@ -1,0 +1,89 @@
+---
+title: MailsController
+description: Controller for sending emails in MvcCore Utilidades
+---
+
+## Overview
+
+The `MailsController` provides functionality for sending emails using SMTP. It retrieves email server configuration from `IConfiguration` including credentials, host, port, and SSL settings.
+
+## Constructor
+
+### MailsController
+
+Initializes a new instance of the controller with configuration access.
+
+<ParamField path="configuration" type="IConfiguration" required>
+  Configuration service for accessing mail server settings and credentials
+</ParamField>
+
+```csharp
+public MailsController(IConfiguration configuration)
+```
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/MailsController.cs:11`
+
+## Methods
+
+### SendMail (GET)
+
+Displays the email composition form.
+
+```csharp
+public IActionResult SendMail()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the SendMail view
+</ResponseField>
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/MailsController.cs:16`
+
+---
+
+### SendMail (POST)
+
+**[HttpPost]**
+
+Sends an email asynchronously using SMTP with configuration from appsettings.
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> SendMail(string to, string asunto, string mensaje)
+```
+
+<ParamField path="to" type="string" required>
+  The recipient email address
+</ParamField>
+
+<ParamField path="asunto" type="string" required>
+  The email subject
+</ParamField>
+
+<ParamField path="mensaje" type="string" required>
+  The email message body (supports HTML)
+</ParamField>
+
+<ResponseField name="IActionResult" type="Task<IActionResult>">
+  Returns the SendMail view with ViewData containing:
+  - `MENSAJE`: "Mensaje enviado correctamente." on success
+</ResponseField>
+
+**Configuration Requirements:**
+
+The method reads the following configuration values:
+- `MailSettings:Credentials:User` - Sender email address
+- `MailSettings:Credentials:Password` - Email account password
+- `Server:Host` - SMTP server hostname
+- `Server:Port` - SMTP server port
+- `Server:Ssl` - Enable/disable SSL
+- `Server:DefaultCredentials` - Use default credentials flag
+
+**Behavior:**
+- Creates a `MailMessage` with HTML body and normal priority
+- Configures `SmtpClient` with settings from configuration
+- **Important:** Sets `UseDefaultCredentials` BEFORE setting custom credentials
+- Sends the email asynchronously
+- Returns success message in ViewData
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/MailsController.cs:21`

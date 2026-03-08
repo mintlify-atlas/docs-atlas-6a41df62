@@ -1,0 +1,112 @@
+---
+title: CochesController
+description: Controller for managing car data in MvcCore Utilidades
+---
+
+## Overview
+
+The `CochesController` manages car (Coches) data using both an in-memory list and a repository. It provides functionality for displaying car listings and details using both full views and partial views.
+
+## Constructor
+
+### CochesController
+
+Initializes a new instance of the controller with a car repository and pre-populated car data.
+
+<ParamField path="repo" type="RepositoryCoches" required>
+  Repository service for accessing car data from persistent storage
+</ParamField>
+
+```csharp
+public CochesController(RepositoryCoches repo)
+```
+
+**Behavior:**
+- Initializes an in-memory list of cars with 4 pre-configured entries:
+  - Pontiac Firebird (ID: 1)
+  - Volkswagen Escarabajo (ID: 2)
+  - Ferrari Testarrosa (ID: 3)
+  - Ford Mustang GT (ID: 4)
+- Each car includes `IdCoche`, `Marca`, `Modelo`, and `Imagen` properties
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CochesController.cs:12`
+
+## Methods
+
+### Index
+
+Displays the main car management view.
+
+```csharp
+public IActionResult Index()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the Index view
+</ResponseField>
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CochesController.cs:54`
+
+---
+
+### _CochesPartial
+
+Returns a partial view with the list of cars from the in-memory collection.
+
+```csharp
+public IActionResult _CochesPartial()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the "_CochesPartial" partial view with the in-memory Cars collection as the model
+</ResponseField>
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CochesController.cs:59`
+
+---
+
+### _CochesDetails
+
+Returns a partial view with details for a specific car from the in-memory collection.
+
+```csharp
+public IActionResult _CochesDetails(int idcoche)
+```
+
+<ParamField path="idcoche" type="int" required>
+  The ID of the car to retrieve details for
+</ParamField>
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the "_CochesDetailsView" partial view with the matching Coche object as the model
+</ResponseField>
+
+**Behavior:**
+- Searches the in-memory Cars list for a car matching the provided `idcoche`
+- Returns the partial view with the found car object
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CochesController.cs:65`
+
+---
+
+### Details
+
+Returns a full view with details for a specific car retrieved from the repository.
+
+```csharp
+public IActionResult Details(int idcoche)
+```
+
+<ParamField path="idcoche" type="int" required>
+  The ID of the car to retrieve details for
+</ParamField>
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the Details view with the Coche object from the repository as the model
+</ResponseField>
+
+**Behavior:**
+- Retrieves the car from the repository using `repo.FindCoche(idcoche)`
+- Returns the full Details view with the car object
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CochesController.cs:71`

@@ -1,0 +1,552 @@
+---
+title: 'Caching'
+description: 'Implement memory and distributed caching strategies'
+icon: 'database'
+---
+
+## Overview
+
+MvcCore Utilidades provides two caching approaches to improve application performance:
+
+1. **Memory Cache (In-Memory)**: Server-side caching with custom expiration settings
+2. **Distributed Cache (Response Caching)**: Client-side caching using HTTP response cache headers
+
+The `CachingController` demonstrates both implementations.
+
+## Key Components
+
+### CachingController
+
+Controller demonstrating memory cache and distributed cache implementations.
+
+**Namespace:** `MvcNetCoreUtilidades.Controllers`
+
+**Dependencies:**
+- `IMemoryCache` - Injected via constructor for in-memory caching
+
+## Configuration
+
+<Steps>
+  <Step title="Register memory cache">
+    Add memory cache services in `Program.cs`:
+
+    ```csharp
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Register memory cache
+    builder.Services.AddMemoryCache();
+    
+    builder.Services.AddControllersWithViews();
+    ```
+  </Step>
+
+  <Step title="Enable distributed memory cache (optional)">
+    For session support and distributed caching:
+
+    ```csharp
+    // Add distributed memory cache for sessions
+    builder.Services.AddDistributedMemoryCache();
+    builder.Services.AddSession();
+
+    var app = builder.Build();
+    
+    // Enable session middleware
+    app.UseSession();
+    ```
+  </Step>
+</Steps>
+
+## Memory Cache Implementation
+
+### MemoriaPersonalizada Action
+
+Custom memory caching with configurable expiration time.
+
+```csharp
+public IActionResult MemoriaPersonalizada(int? tiempo)
+{
+    if (tiempo == null)
+    {
+        tiempo = 60;
+    }
+    
+    string fecha = DateTime.Now.ToLongDateString() + "--" + DateTime.Now.ToLongTimeString();
+    
+    if (this.memoryCache.Get("FECHA") == null)
+    {
+        // Cache miss - store new value
+        MemoryCacheEntryOptions options = new MemoryCacheEntryOptions()
+            .SetAbsoluteExpiration(TimeSpan.FromSeconds(tiempo.Value));
+        
+        this.memoryCache.Set("FECHA", fecha, options);
+        ViewData["MENSAJE"] = "Fecha almacenada correctamente";
+        ViewData["FECHA"] = this.memoryCache.Get("FECHA");
+    }
+    else
+    {
+        // Cache hit - retrieve existing value
+        fecha = this.memoryCache.Get<string>("FECHA");
+        ViewData["MENSAJE"] = "Fecha recuperada correctamente";
+        ViewData["FECHA"] = fecha;
+    }
+    
+    return View();
+}
+```
+
+**Features:**
+- Configurable expiration time via query parameter
+- Defaults to 60 seconds if not specified
+- Absolute expiration (cache expires after fixed duration)
+- Provides feedback on cache hit/miss
+
+**Usage:**
+```
+GET /Caching/MemoriaPersonalizada?tiempo=120
+```
+
+## Distributed Cache Implementation
+
+### MemoriaDistribuida Action
+
+Client-side caching using HTTP response cache headers.
+
+```csharp
+[ResponseCache(Duration = 15, Location = ResponseCacheLocation.Client)]
+public IActionResult MemoriaDistribuida()
+{
+    string fecha = DateTime.Now.ToLongDateString() + "--" + DateTime.Now.ToLongTimeString();
+    ViewData["FECHA"] = fecha;
+    return View();
+}
+```
+
+**Features:**
+- Caches response on the client (browser) for 15 seconds
+- Reduces server load by serving cached content from browser
+- Automatic cache invalidation after duration expires
+- No server-side storage required
+
+## IMemoryCache Methods
+
+### Get
+
+Retrieves a cached value by key.
+
+```csharp
+object value = memoryCache.Get("KEY");
+```
+
+### Get&lt;T&gt;
+
+Retrieves a strongly-typed cached value.
+
+```csharp
+string value = memoryCache.Get<string>("FECHA");
+int number = memoryCache.Get<int>("COUNT");
+```
+
+### Set
+
+Stores a value in cache with options.
+
+```csharp
+memoryCache.Set("KEY", value, options);
+```
+
+### TryGetValue
+
+Attempts to retrieve a value, returns boolean indicating success.
+
+```csharp
+if (memoryCache.TryGetValue("KEY", out string value))
+{
+    // Value exists in cache
+    Console.WriteLine(value);
+}
+else
+{
+    // Value not in cache
+}
+```
+
+### Remove
+
+Removes a value from cache.
+
+```csharp
+memoryCache.Remove("KEY");
+```
+
+## Cache Entry Options
+
+### Absolute Expiration
+
+Cache expires after a fixed duration from creation.
+
+```csharp
+var options = new MemoryCacheEntryOptions()
+    .SetAbsoluteExpiration(TimeSpan.FromSeconds(60));
+```
+
+### Sliding Expiration
+
+Cache expires after period of inactivity.
+
+```csharp
+var options = new MemoryCacheEntryOptions()
+    .SetSlidingExpiration(TimeSpan.FromMinutes(5));
+// Resets expiration timer on each access
+```
+
+### Expiration at Specific Time
+
+```csharp
+var options = new MemoryCacheEntryOptions()
+    .SetAbsoluteExpiration(DateTimeOffset.Now.AddHours(2));
+```
+
+### Cache Priority
+
+```csharp
+var options = new MemoryCacheEntryOptions()
+    .SetPriority(CacheItemPriority.High)
+    .SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
+```
+
+**Priority Levels:**
+- `CacheItemPriority.Low` - First to be removed under memory pressure
+- `CacheItemPriority.Normal` - Default priority
+- `CacheItemPriority.High` - Last to be removed
+- `CacheItemPriority.NeverRemove` - Never removed automatically
+
+## Complete Examples
+
+### Example 1: Product Cache Service
+
+<Tabs>
+  <Tab title="Service">
+    ```csharp
+    using Microsoft.Extensions.Caching.Memory;
+
+    public class ProductCacheService
+    {
+        private readonly IMemoryCache _cache;
+        private readonly IProductRepository _repository;
+        private const string PRODUCT_CACHE_KEY = "ALL_PRODUCTS";
+
+        public ProductCacheService(IMemoryCache cache, IProductRepository repository)
+        {
+            _cache = cache;
+            _repository = repository;
+        }
+
+        public async Task<List<Product>> GetProductsAsync()
+        {
+            // Try to get from cache
+            if (_cache.TryGetValue(PRODUCT_CACHE_KEY, out List<Product> products))
+            {
+                return products;
+            }
+
+            // Cache miss - load from database
+            products = await _repository.GetAllAsync();
+
+            // Set cache options
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
+                .SetPriority(CacheItemPriority.High);
+
+            // Store in cache
+            _cache.Set(PRODUCT_CACHE_KEY, products, cacheOptions);
+
+            return products;
+        }
+
+        public void InvalidateCache()
+        {
+            _cache.Remove(PRODUCT_CACHE_KEY);
+        }
+    }
+    ```
+  </Tab>
+
+  <Tab title="Controller">
+    ```csharp
+    public class ProductsController : Controller
+    {
+        private readonly ProductCacheService _cacheService;
+
+        public ProductsController(ProductCacheService cacheService)
+        {
+            _cacheService = cacheService;
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var products = await _cacheService.GetProductsAsync();
+            return View(products);
+        }
+
+        [HttpPost]
+        public IActionResult Create(Product product)
+        {
+            // Save product...
+            
+            // Invalidate cache
+            _cacheService.InvalidateCache();
+            
+            return RedirectToAction(nameof(Index));
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Example 2: User Session Cache
+
+```csharp
+public class UserSessionService
+{
+    private readonly IMemoryCache _cache;
+
+    public UserSessionService(IMemoryCache cache)
+    {
+        _cache = cache;
+    }
+
+    public void StoreUserSession(string userId, UserSessionData data)
+    {
+        var options = new MemoryCacheEntryOptions()
+            .SetSlidingExpiration(TimeSpan.FromMinutes(30))
+            .SetAbsoluteExpiration(TimeSpan.FromHours(2))
+            .RegisterPostEvictionCallback((key, value, reason, state) =>
+            {
+                // Log session expiration
+                Console.WriteLine($"Session expired for user {key}: {reason}");
+            });
+
+        _cache.Set($"session_{userId}", data, options);
+    }
+
+    public UserSessionData GetUserSession(string userId)
+    {
+        return _cache.Get<UserSessionData>($"session_{userId}");
+    }
+
+    public void RemoveUserSession(string userId)
+    {
+        _cache.Remove($"session_{userId}");
+    }
+}
+```
+
+### Example 3: Response Cache Configuration
+
+<Tabs>
+  <Tab title="Controller Level">
+    ```csharp
+    // Cache all actions for 60 seconds
+    [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Client)]
+    public class StaticContentController : Controller
+    {
+        public IActionResult Index()
+        {
+            return View();
+        }
+
+        // Override for specific action
+        [ResponseCache(Duration = 300)]
+        public IActionResult LongLived()
+        {
+            return View();
+        }
+
+        // Disable caching for specific action
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        public IActionResult Dynamic()
+        {
+            return View();
+        }
+    }
+    ```
+  </Tab>
+
+  <Tab title="Action Level">
+    ```csharp
+    public class ContentController : Controller
+    {
+        // Client-side cache for 5 minutes
+        [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Client)]
+        public IActionResult ClientCache()
+        {
+            return View();
+        }
+
+        // Server-side cache (proxy/CDN)
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
+        public IActionResult ServerCache()
+        {
+            return View();
+        }
+
+        // Cache with VaryByQueryKeys
+        [ResponseCache(Duration = 60, VaryByQueryKeys = new[] { "id", "category" })]
+        public IActionResult Details(int id, string category)
+        {
+            return View();
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Response Cache Locations
+
+| Location | Description | Use Case |
+|----------|-------------|----------|
+| `Client` | Browser cache only | User-specific content |
+| `Any` | Browser, proxy, and server | Public content |
+| `None` | No caching | Dynamic/sensitive data |
+
+## Cache Invalidation Patterns
+
+### Time-Based Invalidation
+
+```csharp
+public class CacheManager
+{
+    private readonly IMemoryCache _cache;
+
+    // Clear all cache at midnight
+    public void ScheduleClearCache()
+    {
+        var midnight = DateTime.Today.AddDays(1);
+        var timeUntilMidnight = midnight - DateTime.Now;
+        
+        var options = new MemoryCacheEntryOptions()
+            .SetAbsoluteExpiration(timeUntilMidnight)
+            .RegisterPostEvictionCallback((key, value, reason, state) =>
+            {
+                // Reload cache for next day
+                LoadFreshData();
+            });
+    }
+}
+```
+
+### Event-Based Invalidation
+
+```csharp
+public class DataService
+{
+    private readonly IMemoryCache _cache;
+
+    public void UpdateData(Data newData)
+    {
+        // Update database
+        _repository.Update(newData);
+        
+        // Invalidate related cache entries
+        _cache.Remove($"data_{newData.Id}");
+        _cache.Remove("all_data");
+        _cache.Remove($"category_{newData.CategoryId}");
+    }
+}
+```
+
+## Best Practices
+
+<Note>
+  **Choose the right cache type**: Use memory cache for server-side data, response cache for client-side content.
+</Note>
+
+<Warning>
+  **Memory limits**: In-memory cache uses server RAM. Monitor memory usage and set appropriate size limits.
+</Warning>
+
+### When to Use Memory Cache
+
+- Database query results
+- Computed/expensive operations
+- Configuration data
+- Session data
+- Frequently accessed objects
+
+### When to Use Response Cache
+
+- Static HTML pages
+- Public content (same for all users)
+- CSS/JS bundles
+- Images and media
+- API responses that don't change frequently
+
+### Performance Tips
+
+1. **Set appropriate expiration times** - Not too short (frequent misses) or too long (stale data)
+2. **Use sliding expiration** for frequently accessed data
+3. **Implement cache warming** for critical data
+4. **Monitor cache hit ratio** to measure effectiveness
+5. **Use cache keys strategically** - Include version/timestamp when needed
+
+```csharp
+// Good: Versioned cache key
+string cacheKey = $"products_v{APP_VERSION}_{categoryId}";
+
+// Good: User-specific cache
+string cacheKey = $"cart_{userId}";
+
+// Avoid: Generic keys that may conflict
+string cacheKey = "data"; // Too generic
+```
+
+## Common Patterns
+
+### Cache-Aside Pattern
+
+```csharp
+public async Task<Product> GetProductAsync(int id)
+{
+    string cacheKey = $"product_{id}";
+    
+    // 1. Check cache
+    if (_cache.TryGetValue(cacheKey, out Product product))
+        return product;
+    
+    // 2. Load from database
+    product = await _repository.GetByIdAsync(id);
+    
+    // 3. Store in cache
+    if (product != null)
+    {
+        var options = new MemoryCacheEntryOptions()
+            .SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
+        _cache.Set(cacheKey, product, options);
+    }
+    
+    return product;
+}
+```
+
+### Write-Through Pattern
+
+```csharp
+public async Task UpdateProductAsync(Product product)
+{
+    // 1. Update database
+    await _repository.UpdateAsync(product);
+    
+    // 2. Update cache
+    string cacheKey = $"product_{product.Id}";
+    var options = new MemoryCacheEntryOptions()
+        .SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
+    _cache.Set(cacheKey, product, options);
+}
+```
+
+## Source Reference
+
+- **CachingController**: `Controllers/CachingController.cs:6`
+- **MemoriaPersonalizada action**: `Controllers/CachingController.cs:19`
+- **MemoriaDistribuida action**: `Controllers/CachingController.cs:43`
+- **Program.cs configuration**: `Program.cs:12`

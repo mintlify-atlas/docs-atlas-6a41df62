@@ -1,122 +1,91 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "MvcCore Utilidades",
+  "theme": "linden",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#512BD4",
+    "light": "#7B5FC7",
+    "dark": "#3A1FA3"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/hctor12/MvcCoreUtilidades"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/hctor12/MvcCoreUtilidades"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Utilities",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "utilities/file-uploads",
+              "utilities/cryptography",
+              "utilities/caching",
+              "utilities/email",
+              "utilities/path-provider"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Examples",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "examples/upload-files",
+              "examples/encrypt-data",
+              "examples/cache-management",
+              "examples/send-email"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Controllers",
             "pages": [
-              "api-reference/introduction"
+              "api/controllers/upload-files",
+              "api/controllers/cifrados",
+              "api/controllers/caching",
+              "api/controllers/mails",
+              "api/controllers/coches"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Helpers",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/helpers/cryptography",
+              "api/helpers/path-provider"
+            ]
+          },
+          {
+            "group": "Repositories",
+            "pages": [
+              "api/repositories/coches"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api/models/coche"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

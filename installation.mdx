@@ -1,0 +1,357 @@
+---
+title: Installation
+description: Step-by-step guide to set up and configure MvcCore Utilidades
+---
+
+# Installation Guide
+
+This guide will walk you through setting up MvcCore Utilidades in your development environment.
+
+## Prerequisites
+
+<Warning>
+  Ensure you have these prerequisites installed before proceeding:
+</Warning>
+
+- **.NET 10.0 SDK** - [Download here](https://dotnet.microsoft.com/download/dotnet/10.0)
+- **Visual Studio 2022** (recommended) or **Visual Studio Code** with C# extension
+- **Git** (optional, for cloning the repository)
+
+### Verify .NET Installation
+
+<Steps>
+  <Step title="Check .NET Version">
+    Open your terminal and verify .NET 10.0 is installed:
+    
+    ```bash
+    dotnet --version
+    ```
+    
+    You should see version `10.0.x` or higher.
+  </Step>
+  
+  <Step title="List Installed SDKs">
+    Confirm .NET 10.0 SDK is available:
+    
+    ```bash
+    dotnet --list-sdks
+    ```
+  </Step>
+</Steps>
+
+## Project Setup
+
+<Steps>
+  <Step title="Clone or Create Project">
+    Clone the repository or create a new project directory:
+    
+    ```bash
+    # Clone from repository
+    git clone <your-repository-url>
+    cd MvcCoreUtilidades
+    
+    # Or create new directory
+    mkdir MvcCoreUtilidades
+    cd MvcCoreUtilidades
+    ```
+  </Step>
+  
+  <Step title="Restore NuGet Packages">
+    Restore all required dependencies:
+    
+    ```bash
+    dotnet restore
+    ```
+    
+    This will install:
+    - `Microsoft.Extensions.Caching.Memory` (v10.0.3)
+  </Step>
+  
+  <Step title="Build the Project">
+    Compile the application:
+    
+    ```bash
+    dotnet build
+    ```
+    
+    Verify the build completes without errors.
+  </Step>
+</Steps>
+
+## Project Configuration
+
+The project uses a minimal configuration approach. Here's the `.csproj` file structure:
+
+```xml MvcCoreUtilidades.csproj
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\images\" />
+    <Folder Include="wwwroot\facturas\" />
+    <Folder Include="wwwroot\uploads\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.3" />
+  </ItemGroup>
+</Project>
+```
+
+### Key Configuration Points
+
+<AccordionGroup>
+  <Accordion title="Target Framework">
+    The project targets **.NET 10.0** (`net10.0`) with nullable reference types enabled for better null safety.
+  </Accordion>
+  
+  <Accordion title="Static File Directories">
+    Three directories are pre-configured under `wwwroot/`:
+    - `images/` - For uploaded images
+    - `facturas/` - For invoice documents
+    - `uploads/` - For general file uploads
+    
+    These directories are created automatically at build time.
+  </Accordion>
+  
+  <Accordion title="NuGet Dependencies">
+    Only one external package is required:
+    - **Microsoft.Extensions.Caching.Memory** (v10.0.3) - For in-memory caching
+  </Accordion>
+</AccordionGroup>
+
+## Application Startup Configuration
+
+The `Program.cs` file configures all services and middleware. Here's the complete setup:
+
+```csharp Program.cs
+using MvcCoreUtilidades.Repositories;
+using MvcNetCoreUtilidades.Helpers;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllersWithViews();
+
+// Session configuration
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession();
+
+// Memory caching
+builder.Services.AddMemoryCache();
+
+// Register custom services
+builder.Services.AddSingleton<HelperPathProvider>();
+builder.Services.AddTransient<RepositoryCoches>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthorization();
+
+app.MapStaticAssets();
+app.UseSession();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=UploadFiles}/{action=SubirFile}/{id?}")
+    .WithStaticAssets();
+
+app.Run();
+```
+
+### Service Registration Explained
+
+<CardGroup cols={2}>
+  <Card title="MVC Services" icon="globe">
+    **AddControllersWithViews()** - Registers MVC services with Razor view support
+  </Card>
+  
+  <Card title="Session Services" icon="clock">
+    **AddDistributedMemoryCache()** + **AddSession()** - Enables session state management
+  </Card>
+  
+  <Card title="Memory Cache" icon="memory">
+    **AddMemoryCache()** - Registers IMemoryCache for in-memory caching
+  </Card>
+  
+  <Card title="Custom Services" icon="wrench">
+    - **HelperPathProvider** (Singleton) - File path resolution
+    - **RepositoryCoches** (Transient) - Data access layer
+  </Card>
+</CardGroup>
+
+<Note>
+  **Service Lifetimes:**
+  - **Singleton**: `HelperPathProvider` - Single instance shared across the application
+  - **Transient**: `RepositoryCoches` - New instance created for each request
+</Note>
+
+## Email Configuration (Optional)
+
+If you plan to use the email functionality, configure SMTP settings in `appsettings.json`:
+
+```json appsettings.json
+{
+  "MailSettings": {
+    "Credentials": {
+      "User": "your-email@example.com",
+      "Password": "your-password"
+    }
+  },
+  "Server": {
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "Ssl": true,
+    "DefaultCredentials": false
+  }
+}
+```
+
+<Warning>
+  **Security Best Practice**: Never commit credentials to source control. Use:
+  - User Secrets for development: `dotnet user-secrets set "MailSettings:Credentials:Password" "your-password"`
+  - Environment variables or Azure Key Vault for production
+</Warning>
+
+### Configure User Secrets (Recommended)
+
+```bash
+# Initialize user secrets
+dotnet user-secrets init
+
+# Set email credentials
+dotnet user-secrets set "MailSettings:Credentials:User" "your-email@example.com"
+dotnet user-secrets set "MailSettings:Credentials:Password" "your-app-password"
+
+# Set SMTP server settings
+dotnet user-secrets set "Server:Host" "smtp.gmail.com"
+dotnet user-secrets set "Server:Port" "587"
+dotnet user-secrets set "Server:Ssl" "true"
+dotnet user-secrets set "Server:DefaultCredentials" "false"
+```
+
+## Running the Application
+
+<Steps>
+  <Step title="Start the Development Server">
+    Run the application:
+    
+    ```bash
+    dotnet run
+    ```
+    
+    Or with hot reload:
+    
+    ```bash
+    dotnet watch run
+    ```
+  </Step>
+  
+  <Step title="Access the Application">
+    Open your browser and navigate to:
+    
+    ```
+    https://localhost:5001
+    ```
+    
+    or
+    
+    ```
+    http://localhost:5000
+    ```
+    
+    The application will launch with the file upload page (default route: `UploadFiles/SubirFile`).
+  </Step>
+  
+  <Step title="Verify Installation">
+    Test that all features work:
+    - Navigate to different controllers
+    - Upload a test file
+    - Try session management (login/logout)
+    - Test caching functionality
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Port Already in Use">
+    If ports 5000/5001 are occupied, modify `launchSettings.json` or specify a different port:
+    
+    ```bash
+    dotnet run --urls="https://localhost:7001;http://localhost:7000"
+    ```
+  </Accordion>
+  
+  <Accordion title="File Upload Errors">
+    Ensure the `wwwroot` directories have write permissions:
+    
+    ```bash
+    # On Linux/Mac
+    chmod -R 755 wwwroot/
+    
+    # On Windows (PowerShell as Administrator)
+    icacls wwwroot /grant Users:(OI)(CI)F /T
+    ```
+  </Accordion>
+  
+  <Accordion title="Session Not Working">
+    Verify these two services are registered in `Program.cs`:
+    
+    ```csharp
+    builder.Services.AddDistributedMemoryCache();
+    builder.Services.AddSession();
+    ```
+    
+    And middleware is configured:
+    
+    ```csharp
+    app.UseSession(); // Must be after UseRouting()
+    ```
+  </Accordion>
+  
+  <Accordion title="Email Sending Fails">
+    Common issues:
+    - **Gmail**: Enable "Less secure app access" or use App Passwords with 2FA
+    - **Authentication**: Ensure `UseDefaultCredentials = false` is set BEFORE setting credentials
+    - **Firewall**: Check that outbound port 587 (or 465 for SSL) is open
+  </Accordion>
+</AccordionGroup>
+
+## Development Environment Setup
+
+### Visual Studio 2022
+
+1. Open `MvcCoreUtilidades.sln` (if available) or open folder
+2. Visual Studio will automatically restore NuGet packages
+3. Press **F5** to run with debugging or **Ctrl+F5** without debugging
+
+### Visual Studio Code
+
+1. Install the **C# Dev Kit** extension
+2. Open the project folder
+3. Press **F5** to launch with debugger
+4. Or use integrated terminal:
+   ```bash
+   dotnet run
+   ```
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+  Now that you have the project set up, learn how to use the utilities with practical examples
+</Card>

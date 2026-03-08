@@ -1,0 +1,696 @@
+---
+title: 'Email Sending'
+description: 'Send emails using SMTP with configurable settings'
+icon: 'envelope'
+---
+
+## Overview
+
+MvcCore Utilidades provides email sending functionality through the `MailsController`, which uses .NET's built-in `SmtpClient` and configuration from `appsettings.json` to send emails via SMTP.
+
+## Key Components
+
+### MailsController
+
+Controller that handles email sending operations.
+
+**Namespace:** `MvcCoreUtilidades.Controllers`
+
+**Dependencies:**
+- `IConfiguration` - Injected via constructor to read mail settings
+
+## Configuration
+
+<Steps>
+  <Step title="Configure appsettings.json">
+    Add email configuration to your `appsettings.json` file:
+
+    ```json
+    {
+      "MailSettings": {
+        "Credentials": {
+          "User": "your-email@example.com",
+          "Password": "your-app-password"
+        }
+      },
+      "Server": {
+        "Host": "smtp.gmail.com",
+        "Port": 587,
+        "Ssl": true,
+        "DefaultCredentials": false
+      }
+    }
+    ```
+
+    <Note>
+      Store sensitive credentials using User Secrets or environment variables in production, not directly in `appsettings.json`.
+    </Note>
+  </Step>
+
+  <Step title="Register dependencies">
+    The controller uses `IConfiguration` which is automatically registered in ASP.NET Core:
+
+    ```csharp
+    var builder = WebApplication.CreateBuilder(args);
+    
+    builder.Services.AddControllersWithViews();
+    // IConfiguration is already available
+    ```
+  </Step>
+</Steps>
+
+## Configuration Structure
+
+### MailSettings Section
+
+<ParamField path="MailSettings.Credentials.User" type="string" required>
+  The email address to send from (SMTP username)
+</ParamField>
+
+<ParamField path="MailSettings.Credentials.Password" type="string" required>
+  The password or app-specific password for the email account
+</ParamField>
+
+### Server Section
+
+<ParamField path="Server.Host" type="string" required>
+  SMTP server hostname (e.g., `smtp.gmail.com`, `smtp.office365.com`)
+</ParamField>
+
+<ParamField path="Server.Port" type="int" required>
+  SMTP server port (typically 587 for TLS, 465 for SSL, 25 for unencrypted)
+</ParamField>
+
+<ParamField path="Server.Ssl" type="bool" required>
+  Enable SSL/TLS encryption (recommended: `true`)
+</ParamField>
+
+<ParamField path="Server.DefaultCredentials" type="bool" required>
+  Use Windows credentials (typically `false` for SMTP authentication)
+</ParamField>
+
+## Controller Implementation
+
+### SendMail (GET)
+
+Displays the email composition form.
+
+```csharp
+public IActionResult SendMail()
+{
+    return View();
+}
+```
+
+### SendMail (POST)
+
+Sends an email asynchronously.
+
+<ParamField path="to" type="string" required>
+  Recipient email address
+</ParamField>
+
+<ParamField path="asunto" type="string" required>
+  Email subject line
+</ParamField>
+
+<ParamField path="mensaje" type="string" required>
+  Email body content (supports HTML)
+</ParamField>
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> SendMail(string to, string asunto, string mensaje)
+{
+    // Read configuration
+    string user = this.configuration.GetValue<string>("MailSettings:Credentials:User");
+    
+    // Create mail message
+    MailMessage mail = new MailMessage();
+    mail.From = new MailAddress(user);
+    mail.To.Add(to);
+    mail.Subject = asunto;
+    mail.Body = mensaje;
+    mail.IsBodyHtml = true;
+    mail.Priority = MailPriority.Normal;
+    
+    // Read SMTP settings
+    string password = this.configuration.GetValue<string>("MailSettings:Credentials:Password");
+    string host = this.configuration.GetValue<string>("Server:Host");
+    int port = this.configuration.GetValue<int>("Server:Port");
+    bool ssl = this.configuration.GetValue<bool>("Server:Ssl");
+    bool defaultCredentials = this.configuration.GetValue<bool>("Server:DefaultCredentials");
+    
+    // Configure SMTP client
+    SmtpClient client = new SmtpClient();
+    client.Host = host;
+    client.Port = port;
+    client.EnableSsl = ssl;
+    client.UseDefaultCredentials = defaultCredentials;  // Set BEFORE credentials
+    
+    NetworkCredential credentials = new NetworkCredential(user, password);
+    client.Credentials = credentials;  // Set AFTER UseDefaultCredentials
+    
+    // Send email
+    await client.SendMailAsync(mail);
+    
+    ViewData["MENSAJE"] = "Mensaje enviado correctamente.";
+    return View();
+}
+```
+
+<Warning>
+  **Important**: Set `UseDefaultCredentials = false` BEFORE setting `Credentials`. The order matters!
+</Warning>
+
+## Common SMTP Configurations
+
+### Gmail
+
+```json
+{
+  "MailSettings": {
+    "Credentials": {
+      "User": "your-email@gmail.com",
+      "Password": "your-16-digit-app-password"
+    }
+  },
+  "Server": {
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "Ssl": true,
+    "DefaultCredentials": false
+  }
+}
+```
+
+<Note>
+  Gmail requires an [App Password](https://support.google.com/accounts/answer/185833) when 2FA is enabled. Regular passwords won't work.
+</Note>
+
+### Microsoft 365 / Outlook
+
+```json
+{
+  "MailSettings": {
+    "Credentials": {
+      "User": "your-email@outlook.com",
+      "Password": "your-password"
+    }
+  },
+  "Server": {
+    "Host": "smtp.office365.com",
+    "Port": 587,
+    "Ssl": true,
+    "DefaultCredentials": false
+  }
+}
+```
+
+### SendGrid
+
+```json
+{
+  "MailSettings": {
+    "Credentials": {
+      "User": "apikey",
+      "Password": "SG.your-sendgrid-api-key"
+    }
+  },
+  "Server": {
+    "Host": "smtp.sendgrid.net",
+    "Port": 587,
+    "Ssl": true,
+    "DefaultCredentials": false
+  }
+}
+```
+
+## Complete Usage Examples
+
+### Example 1: Basic Email Service
+
+<Tabs>
+  <Tab title="Service">
+    ```csharp
+    using System.Net;
+    using System.Net.Mail;
+
+    public class EmailService
+    {
+        private readonly IConfiguration _configuration;
+
+        public EmailService(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
+        public async Task SendEmailAsync(string to, string subject, string body)
+        {
+            string user = _configuration.GetValue<string>("MailSettings:Credentials:User");
+            string password = _configuration.GetValue<string>("MailSettings:Credentials:Password");
+            string host = _configuration.GetValue<string>("Server:Host");
+            int port = _configuration.GetValue<int>("Server:Port");
+            bool ssl = _configuration.GetValue<bool>("Server:Ssl");
+
+            var mail = new MailMessage
+            {
+                From = new MailAddress(user),
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = true
+            };
+            mail.To.Add(to);
+
+            using (var client = new SmtpClient(host, port))
+            {
+                client.EnableSsl = ssl;
+                client.UseDefaultCredentials = false;
+                client.Credentials = new NetworkCredential(user, password);
+
+                await client.SendMailAsync(mail);
+            }
+        }
+    }
+    ```
+  </Tab>
+
+  <Tab title="Controller">
+    ```csharp
+    public class ContactController : Controller
+    {
+        private readonly EmailService _emailService;
+
+        public ContactController(EmailService emailService)
+        {
+            _emailService = emailService;
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> SubmitContact(string email, string message)
+        {
+            try
+            {
+                await _emailService.SendEmailAsync(
+                    to: "admin@example.com",
+                    subject: $"Contact form submission from {email}",
+                    body: message
+                );
+
+                TempData["Success"] = "Message sent successfully!";
+                return RedirectToAction("Index");
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Failed to send message.";
+                return View();
+            }
+        }
+    }
+    ```
+  </Tab>
+
+  <Tab title="Registration">
+    ```csharp
+    // Program.cs
+    builder.Services.AddScoped<EmailService>();
+    ```
+  </Tab>
+</Tabs>
+
+### Example 2: HTML Email with Template
+
+```csharp
+public class EmailTemplateService
+{
+    private readonly IConfiguration _configuration;
+
+    public EmailTemplateService(IConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
+
+    public async Task SendWelcomeEmailAsync(string to, string userName)
+    {
+        string htmlBody = $@"
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; }}
+                    .header {{ background-color: #4CAF50; color: white; padding: 20px; }}
+                    .content {{ padding: 20px; }}
+                </style>
+            </head>
+            <body>
+                <div class='header'>
+                    <h1>Welcome to Our Service!</h1>
+                </div>
+                <div class='content'>
+                    <p>Hello {userName},</p>
+                    <p>Thank you for registering with us.</p>
+                    <p>Best regards,<br>The Team</p>
+                </div>
+            </body>
+            </html>
+        ";
+
+        await SendEmailAsync(to, "Welcome!", htmlBody);
+    }
+
+    private async Task SendEmailAsync(string to, string subject, string body)
+    {
+        string user = _configuration.GetValue<string>("MailSettings:Credentials:User");
+        string password = _configuration.GetValue<string>("MailSettings:Credentials:Password");
+        string host = _configuration.GetValue<string>("Server:Host");
+        int port = _configuration.GetValue<int>("Server:Port");
+        bool ssl = _configuration.GetValue<bool>("Server:Ssl");
+
+        var mail = new MailMessage
+        {
+            From = new MailAddress(user),
+            Subject = subject,
+            Body = body,
+            IsBodyHtml = true
+        };
+        mail.To.Add(to);
+
+        using (var client = new SmtpClient(host, port))
+        {
+            client.EnableSsl = ssl;
+            client.UseDefaultCredentials = false;
+            client.Credentials = new NetworkCredential(user, password);
+
+            await client.SendMailAsync(mail);
+        }
+    }
+}
+```
+
+### Example 3: Email with Attachments
+
+```csharp
+public async Task SendEmailWithAttachmentAsync(string to, string subject, string body, string attachmentPath)
+{
+    string user = _configuration.GetValue<string>("MailSettings:Credentials:User");
+    string password = _configuration.GetValue<string>("MailSettings:Credentials:Password");
+    string host = _configuration.GetValue<string>("Server:Host");
+    int port = _configuration.GetValue<int>("Server:Port");
+    bool ssl = _configuration.GetValue<bool>("Server:Ssl");
+
+    var mail = new MailMessage
+    {
+        From = new MailAddress(user),
+        Subject = subject,
+        Body = body,
+        IsBodyHtml = true
+    };
+    mail.To.Add(to);
+
+    // Add attachment
+    if (File.Exists(attachmentPath))
+    {
+        var attachment = new Attachment(attachmentPath);
+        mail.Attachments.Add(attachment);
+    }
+
+    using (var client = new SmtpClient(host, port))
+    {
+        client.EnableSsl = ssl;
+        client.UseDefaultCredentials = false;
+        client.Credentials = new NetworkCredential(user, password);
+
+        await client.SendMailAsync(mail);
+    }
+}
+```
+
+### Example 4: Multiple Recipients
+
+```csharp
+public async Task SendBulkEmailAsync(List<string> recipients, string subject, string body)
+{
+    string user = _configuration.GetValue<string>("MailSettings:Credentials:User");
+    string password = _configuration.GetValue<string>("MailSettings:Credentials:Password");
+    string host = _configuration.GetValue<string>("Server:Host");
+    int port = _configuration.GetValue<int>("Server:Port");
+    bool ssl = _configuration.GetValue<bool>("Server:Ssl");
+
+    var mail = new MailMessage
+    {
+        From = new MailAddress(user),
+        Subject = subject,
+        Body = body,
+        IsBodyHtml = true
+    };
+
+    // Add multiple recipients
+    foreach (var recipient in recipients)
+    {
+        mail.To.Add(recipient);
+    }
+
+    // Or use BCC for privacy
+    // foreach (var recipient in recipients)
+    // {
+    //     mail.Bcc.Add(recipient);
+    // }
+
+    using (var client = new SmtpClient(host, port))
+    {
+        client.EnableSsl = ssl;
+        client.UseDefaultCredentials = false;
+        client.Credentials = new NetworkCredential(user, password);
+
+        await client.SendMailAsync(mail);
+    }
+}
+```
+
+## MailMessage Properties
+
+### Basic Properties
+
+```csharp
+var mail = new MailMessage();
+mail.From = new MailAddress("sender@example.com", "Display Name");
+mail.To.Add("recipient@example.com");
+mail.Subject = "Email Subject";
+mail.Body = "Email body content";
+mail.IsBodyHtml = true;  // Enable HTML formatting
+```
+
+### Advanced Properties
+
+```csharp
+// Priority
+mail.Priority = MailPriority.High;  // High, Normal, or Low
+
+// CC and BCC
+mail.CC.Add("cc@example.com");
+mail.Bcc.Add("bcc@example.com");
+
+// Reply-To
+mail.ReplyToList.Add("reply@example.com");
+
+// Headers
+mail.Headers.Add("X-Custom-Header", "value");
+```
+
+## Error Handling
+
+### Comprehensive Error Handling
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> SendMail(string to, string asunto, string mensaje)
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(to) || !IsValidEmail(to))
+        {
+            ViewData["ERROR"] = "Please provide a valid email address.";
+            return View();
+        }
+
+        string user = configuration.GetValue<string>("MailSettings:Credentials:User");
+        string password = configuration.GetValue<string>("MailSettings:Credentials:Password");
+
+        if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(password))
+        {
+            ViewData["ERROR"] = "Email configuration is missing.";
+            return View();
+        }
+
+        var mail = new MailMessage
+        {
+            From = new MailAddress(user),
+            Subject = asunto,
+            Body = mensaje,
+            IsBodyHtml = true,
+            Priority = MailPriority.Normal
+        };
+        mail.To.Add(to);
+
+        string host = configuration.GetValue<string>("Server:Host");
+        int port = configuration.GetValue<int>("Server:Port");
+        bool ssl = configuration.GetValue<bool>("Server:Ssl");
+
+        using (var client = new SmtpClient(host, port))
+        {
+            client.EnableSsl = ssl;
+            client.UseDefaultCredentials = false;
+            client.Credentials = new NetworkCredential(user, password);
+            client.Timeout = 10000; // 10 seconds
+
+            await client.SendMailAsync(mail);
+        }
+
+        ViewData["MENSAJE"] = "Email sent successfully.";
+        return View();
+    }
+    catch (SmtpException ex)
+    {
+        ViewData["ERROR"] = $"SMTP Error: {ex.Message}";
+        // Log the error
+        return View();
+    }
+    catch (Exception ex)
+    {
+        ViewData["ERROR"] = $"Unexpected error: {ex.Message}";
+        // Log the error
+        return View();
+    }
+}
+
+private bool IsValidEmail(string email)
+{
+    try
+    {
+        var addr = new MailAddress(email);
+        return addr.Address == email;
+    }
+    catch
+    {
+        return false;
+    }
+}
+```
+
+## Security Best Practices
+
+<Warning>
+  **Never commit credentials**: Store passwords in User Secrets (development) or environment variables (production).
+</Warning>
+
+### Using User Secrets (Development)
+
+<Steps>
+  <Step title="Initialize User Secrets">
+    ```bash
+    dotnet user-secrets init
+    ```
+  </Step>
+
+  <Step title="Set secrets">
+    ```bash
+    dotnet user-secrets set "MailSettings:Credentials:User" "your-email@gmail.com"
+    dotnet user-secrets set "MailSettings:Credentials:Password" "your-app-password"
+    ```
+  </Step>
+
+  <Step title="Access in code">
+    Configuration automatically reads from User Secrets in development:
+    ```csharp
+    string user = configuration.GetValue<string>("MailSettings:Credentials:User");
+    ```
+  </Step>
+</Steps>
+
+### Using Environment Variables (Production)
+
+```bash
+# Linux/macOS
+export MailSettings__Credentials__User="your-email@gmail.com"
+export MailSettings__Credentials__Password="your-app-password"
+
+# Windows
+setx MailSettings__Credentials__User "your-email@gmail.com"
+setx MailSettings__Credentials__Password "your-app-password"
+```
+
+### Using Azure Key Vault
+
+```csharp
+// Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+if (builder.Environment.IsProduction())
+{
+    var keyVaultUrl = new Uri(builder.Configuration["KeyVaultUrl"]);
+    builder.Configuration.AddAzureKeyVault(keyVaultUrl, new DefaultAzureCredential());
+}
+```
+
+## Testing Email Functionality
+
+### Using MailHog (Local SMTP Server)
+
+```json
+{
+  "Server": {
+    "Host": "localhost",
+    "Port": 1025,
+    "Ssl": false,
+    "DefaultCredentials": false
+  },
+  "MailSettings": {
+    "Credentials": {
+      "User": "test@localhost",
+      "Password": ""
+    }
+  }
+}
+```
+
+Run MailHog:
+```bash
+docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
+# View emails at http://localhost:8025
+```
+
+## Common Issues
+
+### Authentication Failed
+
+**Problem**: "Authentication failed" error
+
+**Solutions:**
+- Verify username and password are correct
+- For Gmail: Use App Password instead of regular password
+- Check if 2FA is enabled and App Password is required
+- Ensure "Less secure app access" is enabled (if applicable)
+
+### Connection Timeout
+
+**Problem**: "Unable to connect to remote server"
+
+**Solutions:**
+- Verify SMTP host and port are correct
+- Check firewall settings
+- Ensure SSL/TLS settings match server requirements
+- Try alternative ports (587, 465, 25)
+
+### SSL/TLS Errors
+
+**Problem**: "The remote certificate is invalid"
+
+**Solutions:**
+- Set `EnableSsl = true` for ports 587 and 465
+- Verify server supports SSL/TLS
+- Update .NET runtime if certificate validation fails
+
+## Source Reference
+
+- **MailsController**: `Controllers/MailsController.cs:7`
+- **SendMail action**: `Controllers/MailsController.cs:22`
+- **Configuration reading**: `Controllers/MailsController.cs:24`

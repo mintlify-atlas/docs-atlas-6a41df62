@@ -1,0 +1,296 @@
+---
+title: 'Cache Management'
+description: 'Learn how to implement in-memory caching with custom expiration and response caching'
+---
+
+This example demonstrates two caching strategies in ASP.NET Core: custom in-memory caching with configurable expiration times, and response caching using the `ResponseCache` attribute.
+
+## Overview
+
+Caching improves application performance by storing frequently accessed data in memory, reducing database queries and computation time.
+
+## Caching Strategies
+
+### Custom Memory Cache
+
+Provides fine-grained control over cache expiration with custom timeout settings.
+
+### Response Cache (Distributed)
+
+Uses HTTP caching headers to cache entire action results on the client side.
+
+## Complete Implementation
+
+<Steps>
+  <Step title="Configure Caching Services">
+    Register caching services in your application startup.
+
+    ```csharp Program.cs
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Add services to the container.
+    builder.Services.AddControllersWithViews();
+
+    builder.Services.AddDistributedMemoryCache();
+    builder.Services.AddSession();
+
+    builder.Services.AddMemoryCache();
+
+    var app = builder.Build();
+
+    // Configure middleware
+    app.UseStaticFiles();
+    app.UseRouting();
+    app.UseAuthorization();
+    app.UseSession();
+
+    app.MapControllerRoute(
+        name: "default",
+        pattern: "{controller=UploadFiles}/{action=SubirFile}/{id?}")
+        .WithStaticAssets();
+
+    app.Run();
+    ```
+
+    **Key Services:**
+    - `AddMemoryCache()`: Enables custom in-memory caching
+    - `AddDistributedMemoryCache()`: Enables distributed caching (for response cache)
+    - `AddSession()`: Enables session state (uses distributed cache)
+  </Step>
+
+  <Step title="Create the Caching Controller">
+    The controller demonstrates both caching approaches with dependency injection.
+
+    ```csharp Controllers/CachingController.cs
+    using Microsoft.AspNetCore.Mvc;
+    using Microsoft.Extensions.Caching.Memory;
+
+    namespace MvcNetCoreUtilidades.Controllers
+    {
+        public class CachingController : Controller
+        {
+            private IMemoryCache memoryCache;
+
+            public CachingController(IMemoryCache memoryCache)
+            {
+                this.memoryCache = memoryCache;
+            }
+
+            public IActionResult Index()
+            {
+                return View();
+            }
+
+            public IActionResult MemoriaPersonalizada(int? tiempo)
+            {
+                if (tiempo == null)
+                {
+                    tiempo = 60;
+                }
+                string fecha = DateTime.Now.ToLongDateString() + "--" + DateTime.Now.ToLongTimeString();
+                if (this.memoryCache.Get("FECHA") == null)
+                {
+                    MemoryCacheEntryOptions options = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromSeconds(tiempo.Value));
+                    this.memoryCache.Set("FECHA", fecha, options);
+                    ViewData["MENSAJE"] = "Fecha almacenada correctamente";
+                    ViewData["FECHA"] = this.memoryCache.Get("FECHA");
+                }
+                else
+                {
+                    fecha = this.memoryCache.Get<string>("FECHA");
+                    ViewData["MENSAJE"] = "Fecha recuperada correctamente";
+                    ViewData["FECHA"] = fecha;
+                }
+                return View();
+            }
+
+            [ResponseCache(Duration = 15, Location = ResponseCacheLocation.Client)]
+            public IActionResult MemoriaDistribuida()
+            {
+                string fecha = DateTime.Now.ToLongDateString() + "--" + DateTime.Now.ToLongTimeString();
+                ViewData["FECHA"] = fecha;
+                return View();
+            }
+        }
+    }
+    ```
+
+    See [CachingController.cs:19](/api/controllers/caching#memoriapersonalizada) and [CachingController.cs:42](/api/controllers/caching#memoriadistribuida)
+  </Step>
+
+  <Step title="Create the Views">
+    **Custom Memory Cache View:**
+
+    ```html Views/Caching/MemoriaPersonalizada.cshtml
+    <h1>Memoria Personalizada</h1>
+
+    <p>
+        <a asp-controller="Caching" asp-action="MemoriaPersonalizada">Actualizar página</a>
+    </p>
+    <p>
+        <a asp-controller="Caching" asp-action="MemoriaPersonalizada" asp-route-tiempo="15">Actualizar página 15 sg</a>
+    </p>
+    <p>
+        <a asp-controller="Caching" asp-action="MemoriaPersonalizada" asp-route-tiempo="30">Actualizar página 30sg</a>
+    </p>
+    <h2 style="color: blue">@ViewData["MENSAJE"]</h2>
+    <h2 style="color: red">@ViewData["FECHA"]</h2>
+    ```
+
+    **Response Cache View:**
+
+    ```html Views/Caching/MemoriaDistribuida.cshtml
+    <h1>Memoria Distribuida</h1>
+
+    <p><a asp-controller="Caching" asp-action="MemoriaDistribuida">Actualizar página</a></p>
+    <h2 style="color: blue">@ViewData["FECHA"]</h2>
+    ```
+  </Step>
+</Steps>
+
+## How It Works
+
+### Custom Memory Cache
+
+<CodeGroup>
+```csharp Check Cache
+if (this.memoryCache.Get("FECHA") == null)
+{
+    // Cache miss - store new value
+}
+else
+{
+    // Cache hit - retrieve existing value
+}
+```
+
+```csharp Set Cache with Expiration
+MemoryCacheEntryOptions options = new MemoryCacheEntryOptions()
+    .SetAbsoluteExpiration(TimeSpan.FromSeconds(tiempo.Value));
+this.memoryCache.Set("FECHA", fecha, options);
+```
+
+```csharp Get Cached Value
+string fecha = this.memoryCache.Get<string>("FECHA");
+```
+</CodeGroup>
+
+**Workflow:**
+1. Check if cache key exists
+2. If not exists (cache miss): Store value with expiration time
+3. If exists (cache hit): Retrieve cached value
+4. After expiration: Cache is automatically cleared, next request stores new value
+
+### Response Cache
+
+```csharp
+[ResponseCache(Duration = 15, Location = ResponseCacheLocation.Client)]
+public IActionResult MemoriaDistribuida()
+{
+    // This response is cached on the client for 15 seconds
+    string fecha = DateTime.Now.ToLongDateString() + "--" + DateTime.Now.ToLongTimeString();
+    ViewData["FECHA"] = fecha;
+    return View();
+}
+```
+
+**Workflow:**
+1. First request: Server processes and sends response with cache headers
+2. Subsequent requests (within 15 seconds): Browser uses cached response
+3. After 15 seconds: Browser requests fresh data from server
+
+## Usage Examples
+
+### Custom Expiration Times
+
+The `MemoriaPersonalizada` action accepts a `tiempo` parameter:
+
+- **Default (60 seconds)**: `/Caching/MemoriaPersonalizada`
+- **15 seconds**: `/Caching/MemoriaPersonalizada?tiempo=15`
+- **30 seconds**: `/Caching/MemoriaPersonalizada?tiempo=30`
+- **Custom**: `/Caching/MemoriaPersonalizada?tiempo=120`
+
+### Testing Cache Behavior
+
+1. Navigate to `/Caching/MemoriaPersonalizada?tiempo=15`
+2. Note the displayed date/time (red text)
+3. Refresh the page within 15 seconds → Same date/time displayed (cache hit)
+4. Wait 15+ seconds and refresh → New date/time displayed (cache expired)
+
+## Cache Comparison
+
+| Feature | Custom Memory Cache | Response Cache |
+|---------|-------------------|----------------|
+| **Location** | Server memory | Client browser |
+| **Configuration** | Programmatic (C# code) | Attribute-based |
+| **Expiration Control** | Custom per request | Fixed duration |
+| **Storage** | `IMemoryCache` service | HTTP headers |
+| **Use Case** | Data objects, computed values | Full page responses |
+| **Default Timeout** | No default (must specify) | No default |
+
+## Advanced Options
+
+### Memory Cache Entry Options
+
+```csharp
+var options = new MemoryCacheEntryOptions()
+    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))  // Absolute expiration
+    .SetSlidingExpiration(TimeSpan.FromMinutes(2))   // Sliding expiration
+    .SetPriority(CacheItemPriority.High)             // Priority
+    .RegisterPostEvictionCallback(MyCallback);        // Callback on eviction
+```
+
+### Response Cache Locations
+
+```csharp
+// Cache on client only
+[ResponseCache(Duration = 60, Location = ResponseCacheLocation.Client)]
+
+// Cache on server only  
+[ResponseCache(Duration = 60, Location = ResponseCacheLocation.Server)]
+
+// Cache on both client and server
+[ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any)]
+
+// No caching
+[ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+```
+
+## Best Practices
+
+<Check>
+  **Use custom memory cache when:**
+  - You need fine-grained control over cache expiration
+  - Caching data objects or computed results
+  - Different cache durations per user/request
+</Check>
+
+<Check>
+  **Use response cache when:**
+  - Caching entire page responses
+  - Content doesn't change frequently
+  - Reducing server load for public pages
+</Check>
+
+<Warning>
+  **Memory cache considerations:**
+  - Stored in server memory (lost on restart)
+  - Consumes server resources
+  - Not shared across multiple servers (unless using distributed cache)
+</Warning>
+
+<Info>
+  **Performance tip:**
+  For production apps with multiple servers, consider using distributed caching with Redis or SQL Server instead of in-memory cache.
+</Info>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="CachingController" icon="database" href="/api/controllers/caching">
+    Complete API reference for caching controller
+  </Card>
+  <Card title="Caching Utility" icon="circle-user" href="/utilities/caching">
+    Learn about caching features and options
+  </Card>
+</CardGroup>

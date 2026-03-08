@@ -1,0 +1,77 @@
+---
+title: HelperCryptography
+description: Static helper class for cryptographic operations including content encryption and hashing
+---
+
+## Overview
+
+The `HelperCryptography` class provides static methods for encrypting and hashing content using SHA512 and SHA1 algorithms. This helper is used for secure password storage and basic text encryption.
+
+**Namespace:** `MvcCoreUtilidades.Helpers`
+
+## Properties
+
+### Salt
+
+```csharp
+public static string Salt { get; set; }
+```
+
+Static property that stores the current salt value used for encryption. This salt is automatically generated when encrypting content and should be stored alongside encrypted data for comparison operations.
+
+## Methods
+
+### CifrarContenido
+
+```csharp
+public static string CifrarContenido(string contenido, bool comparar)
+```
+
+Encrypts content using SHA512 hashing with a salt. The method applies 12 iterations of hashing for enhanced security.
+
+<ParamField path="contenido" type="string" required>
+  The content to be encrypted
+</ParamField>
+
+<ParamField path="comparar" type="bool" required>
+  If `false`, generates a new salt. If `true`, uses the existing salt value from the `Salt` property for comparison purposes
+</ParamField>
+
+**Returns:** `string` - The encrypted content as a Unicode string
+
+**Usage:**
+```csharp
+// Encrypting new content
+string encrypted = HelperCryptography.CifrarContenido("myPassword", false);
+string salt = HelperCryptography.Salt; // Save this for later comparison
+
+// Comparing with existing salt
+HelperCryptography.Salt = savedSalt;
+string comparison = HelperCryptography.CifrarContenido("inputPassword", true);
+```
+
+### EncriptarTextoBasico
+
+```csharp
+public static string EncriptarTextoBasico(string contenido)
+```
+
+Performs basic text encryption using SHA1 hashing algorithm without salt.
+
+<ParamField path="contenido" type="string" required>
+  The content to be encrypted
+</ParamField>
+
+**Returns:** `string` - The encrypted content as a Unicode string
+
+**Usage:**
+```csharp
+string encrypted = HelperCryptography.EncriptarTextoBasico("textToEncrypt");
+```
+
+## Implementation Details
+
+- **Salt Generation**: When `comparar` is `false`, a random 30-character salt is generated using ASCII characters (1-255)
+- **SHA512 Hashing**: The `CifrarContenido` method applies SHA512 hashing 12 times for increased security
+- **SHA1 Hashing**: The `EncriptarTextoBasico` method applies SHA1 hashing once
+- **Encoding**: All methods use Unicode encoding for string conversions

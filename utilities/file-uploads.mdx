@@ -1,0 +1,362 @@
+---
+title: 'File Uploads'
+description: 'Upload and manage files with path mapping utilities'
+icon: 'upload'
+---
+
+## Overview
+
+The file upload system in MvcCore Utilidades provides a robust way to handle file uploads with automatic path mapping and URL generation. It uses the `UploadFilesController` combined with the `HelperPathProvider` helper class to manage file storage across different folders.
+
+## Key Components
+
+### UploadFilesController
+
+The main controller for handling file upload operations.
+
+**Namespace:** `MvcCoreUtilidades.Controllers`
+
+**Dependencies:**
+- `HelperPathProvider` - Injected via constructor for path mapping
+
+### HelperPathProvider
+
+Helper class that provides path mapping functionality for different folder types.
+
+**Namespace:** `MvcNetCoreUtilidades.Helpers`
+
+**Dependencies:**
+- `IWebHostEnvironment` - For accessing web root path
+- `IServer` - For generating full URLs with server addresses
+
+## Configuration
+
+<Steps>
+  <Step title="Register HelperPathProvider">
+    Add the `HelperPathProvider` as a singleton service in `Program.cs`:
+
+    ```csharp
+    builder.Services.AddSingleton<HelperPathProvider>();
+    ```
+  </Step>
+
+  <Step title="Create folder structure">
+    Ensure the following folders exist in your `wwwroot` directory:
+    - `images/` - For image uploads
+    - `uploads/` - For general file uploads
+    - `facturas/` - For invoice documents
+    - `temp/` - For temporary files
+  </Step>
+</Steps>
+
+## Folder Enumeration
+
+The system uses an enum to define available folders:
+
+```csharp
+public enum Folders
+{
+    Images,
+    facturas,
+    Uploads,
+    Temporal
+}
+```
+
+## HelperPathProvider Methods
+
+### MapPath
+
+Generates the physical file system path for a file.
+
+<ParamField path="FileName" type="string" required>
+  The name of the file to map
+</ParamField>
+
+<ParamField path="folder" type="Folders" required>
+  The folder enumeration value (Images, facturas, Uploads, or Temporal)
+</ParamField>
+
+**Returns:** `string` - The full physical path to the file
+
+```csharp
+public string MapPath(string FileName, Folders folder)
+```
+
+**Example:**
+```csharp
+string path = helper.MapPath("photo.jpg", Folders.Images);
+// Result: /path/to/wwwroot/images/photo.jpg
+```
+
+### MapUrlPath
+
+Generates the full URL path for accessing a file.
+
+<ParamField path="fileName" type="string" required>
+  The name of the file to map
+</ParamField>
+
+<ParamField path="folder" type="Folders" required>
+  The folder enumeration value
+</ParamField>
+
+**Returns:** `string` - The full URL to access the file
+
+```csharp
+public string MapUrlPath(string fileName, Folders folder)
+```
+
+**Example:**
+```csharp
+string urlPath = helper.MapUrlPath("photo.jpg", Folders.Images);
+// Result: https://localhost:5001/images/photo.jpg
+```
+
+## Controller Actions
+
+### SubirFile (GET)
+
+Displays the file upload form.
+
+```csharp
+public IActionResult SubirFile()
+{
+    return View();
+}
+```
+
+### SubirFile (POST)
+
+Handles file upload with asynchronous streaming.
+
+<ParamField path="fichero" type="IFormFile" required>
+  The uploaded file from the form
+</ParamField>
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> SubirFile(IFormFile fichero)
+```
+
+**Process:**
+1. Extracts the file name from `IFormFile`
+2. Maps the physical path using `HelperPathProvider.MapPath()`
+3. Maps the URL path using `HelperPathProvider.MapUrlPath()`
+4. Creates a file stream and copies the uploaded file asynchronously
+5. Returns success message and URL path
+
+## Complete Upload Example
+
+<Tabs>
+  <Tab title="Controller">
+    ```csharp
+    using Microsoft.AspNetCore.Mvc;
+    using MvcNetCoreUtilidades.Helpers;
+
+    namespace MvcCoreUtilidades.Controllers
+    {
+        public class UploadFilesController : Controller
+        {
+            private HelperPathProvider helper;
+
+            public UploadFilesController(HelperPathProvider helper)
+            {
+                this.helper = helper;
+            }
+
+            [HttpPost]
+            public async Task<IActionResult> SubirFile(IFormFile fichero)
+            {
+                string fileName = fichero.FileName;
+                
+                // Get physical path
+                string path = this.helper.MapPath(fileName, Folders.Images);
+                
+                // Get URL path
+                string urlPath = this.helper.MapUrlPath(fileName, Folders.Images);
+                
+                // Upload file using Stream
+                using (Stream stream = new FileStream(path, FileMode.Create))
+                {
+                    await fichero.CopyToAsync(stream);
+                }
+                
+                ViewData["MENSAJE"] = "Fichero subido a " + path;
+                ViewData["URLPATH"] = urlPath;
+                return View();
+            }
+        }
+    }
+    ```
+  </Tab>
+
+  <Tab title="View (Razor)">
+    ```html
+    @{
+        ViewData["Title"] = "Subir Archivo";
+    }
+
+    <h2>Upload File</h2>
+
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>Select File:</label>
+            <input type="file" name="fichero" class="form-control" required />
+        </div>
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+
+    @if (ViewData["MENSAJE"] != null)
+    {
+        <div class="alert alert-success mt-3">
+            @ViewData["MENSAJE"]
+        </div>
+        <div class="mt-3">
+            <strong>URL:</strong> @ViewData["URLPATH"]
+        </div>
+    }
+    ```
+  </Tab>
+
+  <Tab title="Program.cs">
+    ```csharp
+    using MvcNetCoreUtilidades.Helpers;
+
+    var builder = WebApplication.CreateBuilder(args);
+
+    builder.Services.AddControllersWithViews();
+    
+    // Register HelperPathProvider as singleton
+    builder.Services.AddSingleton<HelperPathProvider>();
+
+    var app = builder.Build();
+
+    app.UseStaticFiles();
+    app.UseRouting();
+    
+    app.MapControllerRoute(
+        name: "default",
+        pattern: "{controller=Home}/{action=Index}/{id?}");
+
+    app.Run();
+    ```
+  </Tab>
+</Tabs>
+
+## Usage Patterns
+
+### Upload to Different Folders
+
+```csharp
+// Upload invoice
+string invoicePath = helper.MapPath("invoice.pdf", Folders.facturas);
+
+// Upload general file
+string uploadPath = helper.MapPath("document.docx", Folders.Uploads);
+
+// Upload temporary file
+string tempPath = helper.MapPath("temp_file.tmp", Folders.Temporal);
+```
+
+### Get URL for Display
+
+```csharp
+// After uploading an image
+string imageUrl = helper.MapUrlPath("photo.jpg", Folders.Images);
+ViewData["ImageUrl"] = imageUrl;
+
+// In the view:
+// <img src="@ViewData["ImageUrl"]" alt="Uploaded photo" />
+```
+
+## Best Practices
+
+<Note>
+  **File Name Sanitization**: Always validate and sanitize file names before uploading to prevent path traversal attacks.
+</Note>
+
+<Warning>
+  **File Size Limits**: Configure maximum file size limits in your web server and application settings to prevent denial of service attacks.
+</Warning>
+
+### Validate File Extensions
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> SubirFile(IFormFile fichero)
+{
+    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+    var extension = Path.GetExtension(fichero.FileName).ToLowerInvariant();
+    
+    if (!allowedExtensions.Contains(extension))
+    {
+        ModelState.AddModelError("", "Invalid file type");
+        return View();
+    }
+    
+    // Proceed with upload...
+}
+```
+
+### Generate Unique File Names
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> SubirFile(IFormFile fichero)
+{
+    var extension = Path.GetExtension(fichero.FileName);
+    var uniqueFileName = $"{Guid.NewGuid()}{extension}";
+    
+    string path = this.helper.MapPath(uniqueFileName, Folders.Images);
+    
+    using (Stream stream = new FileStream(path, FileMode.Create))
+    {
+        await fichero.CopyToAsync(stream);
+    }
+    
+    return View();
+}
+```
+
+## Error Handling
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> SubirFile(IFormFile fichero)
+{
+    try
+    {
+        if (fichero == null || fichero.Length == 0)
+        {
+            ViewData["ERROR"] = "Please select a valid file";
+            return View();
+        }
+        
+        string fileName = fichero.FileName;
+        string path = this.helper.MapPath(fileName, Folders.Images);
+        string urlPath = this.helper.MapUrlPath(fileName, Folders.Images);
+        
+        using (Stream stream = new FileStream(path, FileMode.Create))
+        {
+            await fichero.CopyToAsync(stream);
+        }
+        
+        ViewData["MENSAJE"] = "File uploaded successfully";
+        ViewData["URLPATH"] = urlPath;
+    }
+    catch (Exception ex)
+    {
+        ViewData["ERROR"] = $"Upload failed: {ex.Message}";
+    }
+    
+    return View();
+}
+```
+
+## Source Reference
+
+- **UploadFilesController**: `Controllers/UploadFilesController.cs:6`
+- **HelperPathProvider**: `Helpers/HelperPathProvider.cs:11`
+- **MapPath method**: `Helpers/HelperPathProvider.cs:21`
+- **MapUrlPath method**: `Helpers/HelperPathProvider.cs:46`

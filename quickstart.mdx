@@ -1,80 +1,627 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get started quickly with MvcCore Utilidades - practical examples and code snippets
 ---
 
-## Get started in three steps
+# Quick Start Guide
 
-Get your documentation site running locally and make your first customization.
+This guide will help you quickly understand and use the key utilities in MvcCore Utilidades through practical, real-world examples.
 
-### Step 1: Set up your local environment
+## File Upload Management
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+The `HelperPathProvider` utility simplifies file path handling for uploads.
+
+### Basic File Upload Example
+
+Here's how to implement file uploads using the actual controller code:
+
+```csharp Controllers/UploadFilesController.cs
+using Microsoft.AspNetCore.Mvc;
+using MvcNetCoreUtilidades.Helpers;
+
+public class UploadFilesController : Controller
+{
+    private HelperPathProvider helper;
+
+    public UploadFilesController(HelperPathProvider helper)
+    {
+        this.helper = helper;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SubirFile(IFormFile fichero)
+    {
+        string fileName = fichero.FileName;
+        
+        // Get physical path for saving
+        string path = this.helper.MapPath(fileName, Folders.Images);
+        
+        // Get URL path for displaying
+        string urlPath = this.helper.MapUrlPath(fileName, Folders.Images);
+        
+        // Save file using Stream
+        using (Stream stream = new FileStream(path, FileMode.Create))
+        {
+            await fichero.CopyToAsync(stream);
+        }
+        
+        ViewData["MENSAJE"] = "Fichero subido a " + path;
+        ViewData["URLPATH"] = urlPath;
+        return View();
+    }
+}
+```
+
+### Using HelperPathProvider
+
+The helper provides two key methods:
+
+<CodeGroup>
+
+```csharp Physical Path
+// Get server file system path
+string path = helper.MapPath("image.jpg", Folders.Images);
+// Returns: /var/www/app/wwwroot/images/image.jpg
+```
+
+```csharp URL Path
+// Get public URL for the file
+string urlPath = helper.MapUrlPath("image.jpg", Folders.Images);
+// Returns: https://localhost:5001/images/image.jpg
+```
+
+</CodeGroup>
+
+### Available Folder Types
+
+```csharp Helpers/HelperPathProvider.cs
+public enum Folders
+{
+    Images,      // wwwroot/images/
+    facturas,    // wwwroot/facturas/
+    Uploads,     // wwwroot/uploads/
+    Temporal     // wwwroot/temp/
+}
+```
+
+<Note>
+  The `HelperPathProvider` is registered as a **Singleton** service, so it's shared across all requests for optimal performance.
+</Note>
+
+## Cryptography & Hashing
+
+The `HelperCryptography` class provides two encryption methods for different use cases.
+
+### SHA512 with Salt (Recommended for Passwords)
+
+<Steps>
+  <Step title="Encrypt Content with Generated Salt">
+    ```csharp
+    // First time encryption - generates new salt
+    string password = "mySecurePassword123";
+    string encrypted = HelperCryptography.CifrarContenido(password, comparar: false);
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    // Store both encrypted string and salt
+    string salt = HelperCryptography.Salt;
+    // Save to database: encrypted + salt
+    ```
+  </Step>
+  
+  <Step title="Compare Passwords">
+    ```csharp
+    // For login - compare with existing salt
+    HelperCryptography.Salt = storedSalt; // Set stored salt first
+    string attempt = HelperCryptography.CifrarContenido(userInput, comparar: true);
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    if (attempt == storedEncrypted)
+    {
+        // Password matches!
+    }
+    ```
+  </Step>
+</Steps>
 
-### Step 2: Deploy your changes
+### SHA1 Basic Encryption (For Non-Sensitive Data)
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+```csharp
+// Simple hash without salt
+string content = "data-to-hash";
+string hashed = HelperCryptography.EncriptarTextoBasico(content);
+
+// Compare
+string newHash = HelperCryptography.EncriptarTextoBasico(userInput);
+if (newHash == hashed)
+{
+    // Match!
+}
+```
+
+### Real Controller Implementation
+
+```csharp Controllers/CifradosController.cs
+[HttpPost]
+public IActionResult CifradoEficiente(string contenido, string resultado, string accion)
+{
+    if (accion.ToLower() == "cifrar")
+    {
+        // Encrypt new content
+        string response = HelperCryptography.CifrarContenido(contenido, false);
+        ViewData["TEXTOCIFRADO"] = response;
+        ViewData["SALT"] = HelperCryptography.Salt;
+    }
+    else if (accion.ToLower() == "comparar")
+    {
+        // Compare with existing
+        string response = HelperCryptography.CifrarContenido(contenido, true);
+        if (response != resultado)
+        {
+            ViewData["MENSAJE"] = "Los datos son distintos...";
+        }
+        else
+        {
+            ViewData["MENSAJE"] = "Los datos son IGUALES!!!";
+        }
+    }
+    return View();
+}
+```
+
+<Warning>
+  The SHA512 implementation uses **12 iterations** of hashing for added security. Store the salt separately - you'll need it for password verification!
+</Warning>
+
+## Memory Caching
+
+Implement both custom and distributed caching strategies.
+
+### Custom In-Memory Cache with Expiration
+
+```csharp Controllers/CachingController.cs
+private IMemoryCache memoryCache;
+
+public CachingController(IMemoryCache memoryCache)
+{
+    this.memoryCache = memoryCache;
+}
+
+public IActionResult MemoriaPersonalizada(int? tiempo)
+{
+    if (tiempo == null)
+    {
+        tiempo = 60; // Default 60 seconds
+    }
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    string fecha = DateTime.Now.ToLongDateString() + "--" + DateTime.Now.ToLongTimeString();
+    
+    if (this.memoryCache.Get("FECHA") == null)
+    {
+        // Cache miss - store new value
+        MemoryCacheEntryOptions options = new MemoryCacheEntryOptions()
+            .SetAbsoluteExpiration(TimeSpan.FromSeconds(tiempo.Value));
+        
+        this.memoryCache.Set("FECHA", fecha, options);
+        ViewData["MENSAJE"] = "Fecha almacenada correctamente";
+        ViewData["FECHA"] = fecha;
+    }
+    else
+    {
+        // Cache hit - retrieve existing value
+        fecha = this.memoryCache.Get<string>("FECHA");
+        ViewData["MENSAJE"] = "Fecha recuperada correctamente";
+        ViewData["FECHA"] = fecha;
+    }
+    
+    return View();
+}
+```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+### Distributed Response Caching
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+```csharp Controllers/CachingController.cs
+[ResponseCache(Duration = 15, Location = ResponseCacheLocation.Client)]
+public IActionResult MemoriaDistribuida()
+{
+    string fecha = DateTime.Now.ToLongDateString() + "--" + DateTime.Now.ToLongTimeString();
+    ViewData["FECHA"] = fecha;
+    return View();
+}
+```
 
 <CardGroup cols={2}>
+  <Card title="IMemoryCache" icon="server">
+    **Server-side caching** - Data stored in application memory with custom expiration
+  </Card>
+  
+  <Card title="ResponseCache" icon="browser">
+    **Client-side caching** - HTTP cache headers for browser/CDN caching
+  </Card>
+</CardGroup>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+### Cache Configuration Options
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+<CodeGroup>
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+```csharp Absolute Expiration
+// Cache expires after fixed time
+var options = new MemoryCacheEntryOptions()
+    .SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
+```
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+```csharp Sliding Expiration
+// Cache resets timer on each access
+var options = new MemoryCacheEntryOptions()
+    .SetSlidingExpiration(TimeSpan.FromMinutes(5));
+```
 
+```csharp Combined
+// Both sliding and absolute
+var options = new MemoryCacheEntryOptions()
+    .SetSlidingExpiration(TimeSpan.FromMinutes(5))
+    .SetAbsoluteExpiration(TimeSpan.FromHours(1));
+```
+
+</CodeGroup>
+
+## Session Management
+
+Implement user authentication and state management with sessions.
+
+### Login Implementation
+
+```csharp Controllers/HomeController.cs
+public IActionResult LogIn()
+{
+    return View();
+}
+
+[HttpPost]
+public IActionResult LogIn(string usuario)
+{
+    // Store user in session
+    HttpContext.Session.SetString("USUARIO", usuario);
+    ViewData["MENSAJE"] = "Usuario en el sistema";
+    return View();
+}
+
+public IActionResult LogOut()
+{
+    // Remove user from session
+    HttpContext.Session.Remove("USUARIO");
+    return RedirectToAction("Index");
+}
+```
+
+### Reading Session Data
+
+```csharp
+// In any controller or view
+string? usuario = HttpContext.Session.GetString("USUARIO");
+
+if (!string.IsNullOrEmpty(usuario))
+{
+    // User is logged in
+    ViewData["CurrentUser"] = usuario;
+}
+else
+{
+    // Redirect to login
+    return RedirectToAction("LogIn", "Home");
+}
+```
+
+### Session Helper Methods
+
+<CodeGroup>
+
+```csharp String Values
+// Store string
+HttpContext.Session.SetString("Key", "Value");
+
+// Retrieve string
+string? value = HttpContext.Session.GetString("Key");
+```
+
+```csharp Integer Values
+// Store int
+HttpContext.Session.SetInt32("UserId", 123);
+
+// Retrieve int
+int? userId = HttpContext.Session.GetInt32("UserId");
+```
+
+```csharp Complex Objects
+using System.Text.Json;
+
+// Store object
+var user = new { Id = 1, Name = "John" };
+HttpContext.Session.SetString("User", JsonSerializer.Serialize(user));
+
+// Retrieve object
+string? json = HttpContext.Session.GetString("User");
+var retrievedUser = JsonSerializer.Deserialize<dynamic>(json);
+```
+
+</CodeGroup>
+
+<Note>
+  Session configuration is already set up in `Program.cs` with `AddDistributedMemoryCache()` and `AddSession()`. Sessions are stored in memory by default.
+</Note>
+
+## Email Sending
+
+Send emails through SMTP with full configuration support.
+
+```csharp Controllers/MailsController.cs
+private IConfiguration configuration;
+
+public MailsController(IConfiguration configuration)
+{
+    this.configuration = configuration;
+}
+
+[HttpPost]
+public async Task<IActionResult> SendMail(string to, string asunto, string mensaje)
+{
+    // Get credentials from configuration
+    string user = this.configuration.GetValue<string>("MailSettings:Credentials:User");
+    string password = this.configuration.GetValue<string>("MailSettings:Credentials:Password");
+    
+    // Create mail message
+    MailMessage mail = new MailMessage();
+    mail.From = new MailAddress(user);
+    mail.To.Add(to);
+    mail.Subject = asunto;
+    mail.Body = mensaje;
+    mail.IsBodyHtml = true;
+    mail.Priority = MailPriority.Normal;
+    
+    // Get SMTP settings
+    string host = this.configuration.GetValue<string>("Server:Host");
+    int port = this.configuration.GetValue<int>("Server:Port");
+    bool ssl = this.configuration.GetValue<bool>("Server:Ssl");
+    bool defaultCredentials = this.configuration.GetValue<bool>("Server:DefaultCredentials");
+    
+    // Configure SMTP client
+    SmtpClient client = new SmtpClient();
+    client.Host = host;
+    client.Port = port;
+    client.EnableSsl = ssl;
+    client.UseDefaultCredentials = defaultCredentials;  // MUST be set BEFORE credentials
+    
+    NetworkCredential credentials = new NetworkCredential(user, password);
+    client.Credentials = credentials;  // Set AFTER UseDefaultCredentials
+    
+    // Send email
+    await client.SendMailAsync(mail);
+    
+    ViewData["MENSAJE"] = "Mensaje enviado correctamente.";
+    return View();
+}
+```
+
+<Warning>
+  **Important**: Set `UseDefaultCredentials = false` BEFORE setting `Credentials`. This is a common gotcha that causes authentication failures!
+</Warning>
+
+### HTML Email Template Example
+
+```csharp
+string htmlBody = $@"
+<html>
+<body style='font-family: Arial, sans-serif;'>
+    <h2 style='color: #333;'>Welcome to MvcCore Utilidades!</h2>
+    <p>Hello {userName},</p>
+    <p>Thank you for registering. Your account is now active.</p>
+    <a href='https://yourapp.com/login' 
+       style='background-color: #4CAF50; color: white; padding: 10px 20px; 
+              text-decoration: none; border-radius: 5px;'>
+        Login Now
+    </a>
+</body>
+</html>
+";
+
+mail.Body = htmlBody;
+mail.IsBodyHtml = true;
+```
+
+## Repository Pattern
+
+Implement data access with the repository pattern.
+
+### Repository Example
+
+```csharp Repositories/RepositoryCoches.cs
+public class RepositoryCoches
+{
+    private List<Coche> Cars;
+
+    public RepositoryCoches()
+    {
+        this.Cars = new List<Coche>
+        {
+            new Coche 
+            { 
+                IdCoche = 1, 
+                Marca = "Pontiac", 
+                Modelo = "Firebird", 
+                Imagen = "https://example.com/firebird.jpg"
+            },
+            new Coche 
+            { 
+                IdCoche = 2, 
+                Marca = "Volkswagen", 
+                Modelo = "Escarabajo", 
+                Imagen = "https://example.com/beetle.jpg"
+            }
+        };
+    }
+
+    public List<Coche> GetCoches()
+    {
+        return this.Cars;
+    }
+
+    public Coche FindCoche(int idCoche)
+    {
+        return this.Cars.Find(x => x.IdCoche == idCoche);
+    }
+}
+```
+
+### Using Repository in Controller
+
+```csharp Controllers/CochesController.cs
+private RepositoryCoches repo;
+
+public CochesController(RepositoryCoches repo)
+{
+    this.repo = repo;
+}
+
+public IActionResult Details(int idcoche)
+{
+    Coche car = this.repo.FindCoche(idcoche);
+    return View(car);
+}
+
+public IActionResult Index()
+{
+    List<Coche> cars = this.repo.GetCoches();
+    return View(cars);
+}
+```
+
+<Note>
+  The repository is registered as **Transient** in `Program.cs`, meaning a new instance is created for each request.
+</Note>
+
+## View Components
+
+Create reusable UI components with ViewComponents.
+
+```csharp ViewComponents/MenuCochesViewComponent.cs
+public class MenuCochesViewComponent : ViewComponent
+{
+    private RepositoryCoches repo;
+
+    public MenuCochesViewComponent(RepositoryCoches repo)
+    {
+        this.repo = repo;
+    }
+
+    public async Task<IViewComponentResult> InvokeAsync()
+    {
+        List<Coche> cars = this.repo.GetCoches();
+        return View(cars);
+    }
+}
+```
+
+### Using ViewComponent in Views
+
+```cshtml
+@* Synchronous invocation *@
+@await Component.InvokeAsync("MenuCoches")
+
+@* With parameters *@
+@await Component.InvokeAsync("MenuCoches", new { maxItems = 5 })
+
+@* As tag helper *@
+<vc:menu-coches max-items="5"></vc:menu-coches>
+```
+
+## Partial Views for AJAX
+
+Load dynamic content with partial views.
+
+```csharp Controllers/CochesController.cs
+public IActionResult _CochesPartial()
+{
+    return PartialView("_CochesPartial", this.Cars);
+}
+
+public IActionResult _CochesDetails(int idcoche)
+{
+    Coche car = this.Cars.Find(x => x.IdCoche == idcoche);
+    return PartialView("_CochesDetailsView", car);
+}
+```
+
+### AJAX Call Example
+
+```javascript
+// Fetch partial view content
+fetch('/Coches/_CochesPartial')
+    .then(response => response.text())
+    .then(html => {
+        document.getElementById('content').innerHTML = html;
+    });
+
+// With jQuery
+$('#loadButton').click(function() {
+    $('#content').load('/Coches/_CochesDetails?idcoche=1');
+});
+```
+
+## Common Patterns
+
+### Dependency Injection in Controllers
+
+All controllers use constructor injection:
+
+```csharp
+public class MyController : Controller
+{
+    private readonly IMemoryCache cache;
+    private readonly HelperPathProvider pathHelper;
+    private readonly IConfiguration configuration;
+
+    public MyController(
+        IMemoryCache cache,
+        HelperPathProvider pathHelper,
+        IConfiguration configuration)
+    {
+        this.cache = cache;
+        this.pathHelper = pathHelper;
+        this.configuration = configuration;
+    }
+}
+```
+
+### ViewData for Passing Data to Views
+
+```csharp
+// In controller
+ViewData["Message"] = "Success!";
+ViewData["User"] = currentUser;
+ViewData["Items"] = itemList;
+
+// In view
+<p>@ViewData["Message"]</p>
+<h2>@ViewData["User"]</h2>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Controllers" icon="code">
+    Dive deeper into each controller's implementation in the source code
+  </Card>
+  
+  <Card title="Customize Helpers" icon="wrench">
+    Extend the helper classes to fit your specific needs
+  </Card>
+  
+  <Card title="Add Your Features" icon="plus">
+    Build on top of these utilities to create your application
+  </Card>
+  
+  <Card title="Best Practices" icon="star">
+    Study the code patterns for ASP.NET Core development
+  </Card>
 </CardGroup>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  All code examples are taken directly from the MvcCore Utilidades source code. You can find the complete implementations in the respective controller and helper files.
 </Note>

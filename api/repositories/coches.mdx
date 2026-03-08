@@ -1,0 +1,108 @@
+---
+title: RepositoryCoches
+description: Repository class for managing car (Coche) data
+---
+
+## Overview
+
+The `RepositoryCoches` class provides data access methods for managing a collection of cars. It contains an in-memory list of cars and methods to retrieve and search for car records.
+
+**Namespace:** `MvcCoreUtilidades.Repositories`
+
+## Constructor
+
+```csharp
+public RepositoryCoches()
+```
+
+Initializes a new instance of the `RepositoryCoches` class with a predefined list of cars. The repository is initialized with four sample cars:
+
+1. Pontiac Firebird (IdCoche: 1)
+2. Volkswagen Escarabajo (IdCoche: 2)
+3. Ferrari Testarrosa (IdCoche: 3)
+4. Ford Mustang GT (IdCoche: 4)
+
+## Properties
+
+### Cars
+
+```csharp
+private List<Coche> Cars
+```
+
+Private field that stores the collection of cars managed by the repository.
+
+## Methods
+
+### GetCoches
+
+```csharp
+public List<Coche> GetCoches()
+```
+
+Retrieves all cars from the repository.
+
+**Returns:** `List<Coche>` - A list containing all car records
+
+**Usage:**
+```csharp
+var repository = new RepositoryCoches();
+List<Coche> allCars = repository.GetCoches();
+```
+
+### FindCoche
+
+```csharp
+public Coche FindCoche(int idCoche)
+```
+
+Finds and returns a specific car by its ID.
+
+<ParamField path="idCoche" type="int" required>
+  The unique identifier of the car to find
+</ParamField>
+
+**Returns:** `Coche` - The car object with the specified ID, or `null` if not found
+
+**Usage:**
+```csharp
+var repository = new RepositoryCoches();
+Coche car = repository.FindCoche(1);
+if (car != null)
+{
+    Console.WriteLine($"{car.Marca} {car.Modelo}");
+}
+```
+
+## Dependency Injection
+
+Register the repository as a singleton or scoped service in your `Program.cs`:
+
+```csharp
+builder.Services.AddSingleton<RepositoryCoches>();
+```
+
+Inject it into your controllers:
+
+```csharp
+public class CochesController : Controller
+{
+    private RepositoryCoches repo;
+    
+    public CochesController(RepositoryCoches repo)
+    {
+        this.repo = repo;
+    }
+}
+```
+
+## Sample Data
+
+The repository contains the following cars by default:
+
+| IdCoche | Marca | Modelo | Imagen |
+|---------|-------|--------|--------|
+| 1 | Pontiac | Firebird | [Image URL] |
+| 2 | Volkswagen | Escarabajo | [Image URL] |
+| 3 | Ferrari | Testarrosa | [Image URL] |
+| 4 | Ford | Mustang GT | [Image URL] |

@@ -1,0 +1,135 @@
+---
+title: CifradosController
+description: Controller for encryption operations in MvcCore Utilidades
+---
+
+## Overview
+
+The `CifradosController` provides encryption functionality with two approaches: basic encryption and efficient encryption. It uses the `HelperCryptography` helper class to perform cryptographic operations.
+
+## Methods
+
+### Index
+
+Displays the main encryption view.
+
+```csharp
+public IActionResult Index()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the Index view
+</ResponseField>
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CifradosController.cs:9`
+
+---
+
+### CifradoBasico (GET)
+
+Displays the basic encryption form.
+
+```csharp
+public IActionResult CifradoBasico()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the CifradoBasico view
+</ResponseField>
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CifradosController.cs:14`
+
+---
+
+### CifradoBasico (POST)
+
+**[HttpPost]**
+
+Performs basic encryption or comparison of encrypted content.
+
+```csharp
+[HttpPost]
+public IActionResult CifradoBasico(string contenido, string resultado, string accion)
+```
+
+<ParamField path="contenido" type="string" required>
+  The content to encrypt or compare
+</ParamField>
+
+<ParamField path="resultado" type="string">
+  The encrypted result to compare against (used when action is "comparar")
+</ParamField>
+
+<ParamField path="accion" type="string" required>
+  The action to perform: "cifrar" (encrypt) or "comparar" (compare)
+</ParamField>
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the CifradoBasico view with ViewData containing:
+  - `TEXTOCIFRADO`: The encrypted text (when action is "cifrar")
+  - `MENSAJE`: Comparison result message (when action is "comparar")
+</ResponseField>
+
+**Behavior:**
+- If `accion` is "cifrar": encrypts the content and sets `TEXTOCIFRADO` in ViewData
+- If `accion` is "comparar": encrypts the content and compares with `resultado`, setting appropriate message in ViewData
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CifradosController.cs:48`
+
+---
+
+### CifradoEficiente (GET)
+
+Displays the efficient encryption form.
+
+```csharp
+public IActionResult CifradoEficiente()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the CifradoEficiente view
+</ResponseField>
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CifradosController.cs:19`
+
+---
+
+### CifradoEficiente (POST)
+
+**[HttpPost]**
+
+Performs efficient encryption with salt or comparison of encrypted content.
+
+```csharp
+[HttpPost]
+public IActionResult CifradoEficiente(string contenido, string resultado, string accion)
+```
+
+<ParamField path="contenido" type="string" required>
+  The content to encrypt or compare
+</ParamField>
+
+<ParamField path="resultado" type="string">
+  The encrypted result to compare against (used when action is "comparar")
+</ParamField>
+
+<ParamField path="accion" type="string" required>
+  The action to perform: "cifrar" (encrypt) or "comparar" (compare)
+</ParamField>
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the CifradoEficiente view with ViewData containing:
+  - `TEXTOCIFRADO`: The encrypted text (when action is "cifrar")
+  - `SALT`: The salt value used in encryption (when action is "cifrar")
+  - `MENSAJE`: Comparison result message (when action is "comparar")
+</ResponseField>
+
+**Behavior:**
+- If `accion` is "cifrar": 
+  - Encrypts the content with `HelperCryptography.CifrarContenido(contenido, false)`
+  - Sets `TEXTOCIFRADO` and `SALT` in ViewData
+- If `accion` is "comparar":
+  - Encrypts the content with `HelperCryptography.CifrarContenido(contenido, true)`
+  - Compares with `resultado` and sets appropriate message in ViewData
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CifradosController.cs:24`

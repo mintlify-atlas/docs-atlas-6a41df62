@@ -1,0 +1,206 @@
+---
+title: 'File Upload'
+description: 'Learn how to upload files to the server using IFormFile and HelperPathProvider'
+---
+
+This example demonstrates a complete file upload implementation using ASP.NET Core's `IFormFile` and the custom `HelperPathProvider` helper.
+
+## Overview
+
+The file upload feature allows users to upload files to the server and stores them in designated folders (Images, Uploads, Temporal, or Facturas). The implementation handles file streaming and provides both physical paths and URL paths for uploaded files.
+
+## Complete Implementation
+
+<Steps>
+  <Step title="Create the Controller">
+    The `UploadFilesController` handles file uploads using dependency injection for the `HelperPathProvider`.
+
+    ```csharp Controllers/UploadFilesController.cs
+    using Microsoft.AspNetCore.Mvc;
+    using MvcNetCoreUtilidades.Helpers;
+
+    namespace MvcCoreUtilidades.Controllers
+    {
+        public class UploadFilesController : Controller
+        {
+            private HelperPathProvider helper;
+
+            public UploadFilesController(HelperPathProvider helper)
+            {
+                this.helper = helper;
+            }
+
+            public IActionResult Index()
+            {
+                return View();
+            }
+
+            public IActionResult SubirFile()
+            {
+                return View();
+            }
+
+            [HttpPost]
+            public async Task<IActionResult> SubirFile(IFormFile fichero)
+            {
+                string fileName = fichero.FileName;
+                string path =
+                this.helper.MapPath(fileName, Folders.Images);
+                string urlPath =
+                this.helper.MapUrlPath(fileName, Folders.Images);
+                //PARA SUBIR FICHEROS UTILIZAMOS Stream 
+                using (Stream stream = new FileStream(path, FileMode.Create))
+                {
+                    await fichero.CopyToAsync(stream);
+                }
+                ViewData["MENSAJE"] = "Fichero subido a "
+                + path;
+                ViewData["URLPATH"] = urlPath;
+                return View();
+            }
+        }
+    }
+    ```
+
+    **Key Points:**
+    - Uses `IFormFile` parameter to receive uploaded files
+    - `HelperPathProvider` generates both physical and URL paths
+    - Async file streaming with `CopyToAsync` for better performance
+    - Returns success message with file location
+  </Step>
+
+  <Step title="Create the View">
+    The view provides a form with file input and displays the upload result.
+
+    ```html Views/UploadFiles/SubirFile.cshtml
+    <h1>
+        Subir ficheros Net Core
+    </h1>
+
+    <form method="post" enctype="multipart/form-data" class="my-2">
+        <label>Seleccione un fichero: </label>
+        <input type="file" name="fichero" class="form-control"/>
+        <button class="btn btn-info mt-2">Subir fichero</button>
+    </form>
+
+    <img src='~/uploads/@ViewData["FILENAME"]'/>
+
+    <h2 style="color:blue">
+        @ViewData["MENSAJE"]
+    </h2>
+    ```
+
+    **Important:** The form must include `enctype="multipart/form-data"` to handle file uploads.
+  </Step>
+
+  <Step title="Configure HelperPathProvider">
+    Register the `HelperPathProvider` as a singleton service in your application.
+
+    ```csharp Program.cs
+    builder.Services.AddSingleton<HelperPathProvider>();
+    ```
+
+    The helper provides methods to work with different folder types:
+
+    ```csharp Helpers/HelperPathProvider.cs
+    public enum Folders
+    {
+        Images, facturas, Uploads, Temporal
+    }
+
+    public class HelperPathProvider
+    {
+        private IWebHostEnvironment hostEnvironment;
+        private IServer server;
+
+        public HelperPathProvider(IWebHostEnvironment hostEnvironment, IServer server)
+        {
+            this.hostEnvironment = hostEnvironment;
+            this.server = server;
+        }
+
+        public string MapPath(string FileName, Folders folder)
+        {
+            string carpeta = "";
+            if (folder == Folders.Images)
+            {
+                carpeta = "images";
+            }
+            else if (folder == Folders.facturas)
+            {
+                carpeta = "facturas";
+            }
+            else if (folder == Folders.Uploads)
+            {
+                carpeta = "uploads";
+            }
+            else if (folder == Folders.Temporal)
+            {
+                carpeta = "temp";
+            }
+
+            string rootPath = this.hostEnvironment.WebRootPath;
+            string path = Path.Combine(rootPath, carpeta, FileName);
+            return path;
+        }
+
+        public string MapUrlPath(string fileName, Folders folder)
+        {
+            string carpeta = "";
+            if (folder == Folders.Images)
+            {
+                carpeta = "images";
+            }
+            else if (folder == Folders.facturas)
+            {
+                carpeta = "facturas";
+            }
+            else if (folder == Folders.Uploads)
+            {
+                carpeta = "uploads";
+            }
+            else if (folder == Folders.Temporal)
+            {
+                carpeta = "temp";
+            }
+            var adresses =
+                this.server.Features.Get<IServerAddressesFeature>().Addresses;
+            string serverUrl = adresses.FirstOrDefault();
+            string urlPath = serverUrl + "/" + carpeta + "/" + fileName;
+            return urlPath;
+        }
+    }
+    ```
+
+    See [HelperPathProvider.cs:21](/api/helpers/path-provider#mappath) and [HelperPathProvider.cs:46](/api/helpers/path-provider#mapurlpath)
+  </Step>
+</Steps>
+
+## Usage Example
+
+1. Navigate to `/UploadFiles/SubirFile`
+2. Select a file using the file input
+3. Click "Subir fichero" to upload
+4. The file is saved to `wwwroot/images/` directory
+5. Success message displays the physical path
+6. URL path is available for accessing the uploaded file
+
+## Available Folder Options
+
+| Folder | Physical Directory | Use Case |
+|--------|-------------------|----------|
+| `Folders.Images` | `wwwroot/images/` | Image uploads |
+| `Folders.Uploads` | `wwwroot/uploads/` | General file uploads |
+| `Folders.Temporal` | `wwwroot/temp/` | Temporary files |
+| `Folders.facturas` | `wwwroot/facturas/` | Invoice documents |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="HelperPathProvider" icon="folder" href="/api/helpers/path-provider">
+    Complete API reference for path mapping utilities
+  </Card>
+  <Card title="Controllers" icon="code" href="/api/controllers/upload-files">
+    UploadFilesController API reference
+  </Card>
+</CardGroup>

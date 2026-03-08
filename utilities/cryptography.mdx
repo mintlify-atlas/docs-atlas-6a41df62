@@ -1,0 +1,436 @@
+---
+title: 'Cryptography'
+description: 'Encrypt and hash content with built-in cryptography utilities'
+icon: 'lock'
+---
+
+## Overview
+
+MvcCore Utilidades provides cryptography utilities through the `HelperCryptography` static class, which offers two approaches to content encryption:
+
+1. **Basic Encryption**: Simple SHA1-based hashing
+2. **Efficient Encryption**: Advanced SHA512-based hashing with salt and multiple iterations
+
+The `CifradosController` demonstrates practical implementation of these cryptography features.
+
+## Key Components
+
+### HelperCryptography
+
+Static helper class providing encryption and hashing methods.
+
+**Namespace:** `MvcCoreUtilidades.Helpers`
+
+**Key Features:**
+- SHA1-based basic encryption
+- SHA512-based efficient encryption with salt
+- Automatic salt generation
+- Multiple iteration hashing for enhanced security
+
+### CifradosController
+
+Controller demonstrating encryption usage for both basic and efficient methods.
+
+**Namespace:** `MvcCoreUtilidades.Controllers`
+
+## HelperCryptography Methods
+
+### EncriptarTextoBasico
+
+Provides basic SHA1 hashing for content.
+
+<ParamField path="contenido" type="string" required>
+  The content to encrypt
+</ParamField>
+
+**Returns:** `string` - The encrypted content using SHA1
+
+```csharp
+public static string EncriptarTextoBasico(string contenido)
+```
+
+**Implementation:**
+```csharp
+public static string EncriptarTextoBasico(string contenido)
+{
+    byte[] entrada;
+    byte[] salida;
+    UnicodeEncoding encoding = new UnicodeEncoding();
+    SHA1 managed = SHA1.Create();
+    entrada = encoding.GetBytes(contenido);
+    salida = managed.ComputeHash(entrada);
+
+    string resultado = encoding.GetString(salida);
+    return resultado;
+}
+```
+
+<Warning>
+  SHA1 is considered cryptographically weak for password storage. Use `CifrarContenido` for production applications.
+</Warning>
+
+### CifrarContenido
+
+Provides advanced SHA512 hashing with salt and multiple iterations.
+
+<ParamField path="contenido" type="string" required>
+  The content to encrypt
+</ParamField>
+
+<ParamField path="comparar" type="bool" required>
+  - `false`: Generate new salt (for initial encryption)
+  - `true`: Use existing salt (for comparison/verification)
+</ParamField>
+
+**Returns:** `string` - The encrypted content using SHA512 with salt
+
+```csharp
+public static string CifrarContenido(string contenido, bool comparar)
+```
+
+**Implementation:**
+```csharp
+public static string CifrarContenido(string contenido, bool comparar)
+{
+    if (comparar == false)
+    {
+        Salt = GenerateSalt();
+    }
+
+    string contenidoSalt = contenido + Salt;
+    SHA512 managed = SHA512.Create();
+    UnicodeEncoding encoding = new UnicodeEncoding();
+    byte[] salida;
+    salida = encoding.GetBytes(contenidoSalt);
+    
+    // Apply 12 iterations for enhanced security
+    for (int i = 1; i <= 12; i++)
+    {
+        salida = managed.ComputeHash(salida);
+    }
+    
+    managed.Clear();
+    string resultado = encoding.GetString(salida);
+    return resultado;
+}
+```
+
+### Salt Property
+
+Static property that stores the generated salt value.
+
+```csharp
+public static string Salt { get; set; }
+```
+
+<Note>
+  The salt must be stored and reused when comparing encrypted values. Store it securely (e.g., in a database) alongside the encrypted content.
+</Note>
+
+### GenerateSalt (Private)
+
+Generates a random 30-character salt string.
+
+```csharp
+private static string GenerateSalt()
+{
+    Random random = new Random();
+    string salt = "";
+    for (int i = 1; i <= 30; i++)
+    {
+        int num = random.Next(1, 255);
+        char letra = Convert.ToChar(num);
+        salt += letra;
+    }
+    return salt;
+}
+```
+
+## Controller Implementation
+
+### CifradoBasico Actions
+
+<Tabs>
+  <Tab title="GET Action">
+    ```csharp
+    public IActionResult CifradoBasico()
+    {
+        return View();
+    }
+    ```
+  </Tab>
+
+  <Tab title="POST Action">
+    ```csharp
+    [HttpPost]
+    public IActionResult CifradoBasico(string contenido, string resultado, string accion)
+    {
+        string response = HelperCryptography.EncriptarTextoBasico(contenido);
+        
+        if (accion.ToLower() == "cifrar")
+        {
+            ViewData["TEXTOCIFRADO"] = response;
+        }
+        else if (accion.ToLower() == "comparar")
+        {
+            if (response != resultado)
+            {
+                ViewData["MENSAJE"] = "Los datos no coinciden";
+            }
+            else
+            {
+                ViewData["MENSAJE"] = "Contenidos iguales!!!";
+            }
+        }
+        return View();
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### CifradoEficiente Actions
+
+<Tabs>
+  <Tab title="GET Action">
+    ```csharp
+    public IActionResult CifradoEficiente()
+    {
+        return View();
+    }
+    ```
+  </Tab>
+
+  <Tab title="POST Action">
+    ```csharp
+    [HttpPost]
+    public IActionResult CifradoEficiente(string contenido, string resultado, string accion)
+    {
+        if (accion.ToLower() == "cifrar")
+        {
+            // Generate new salt for encryption
+            string response = HelperCryptography.CifrarContenido(contenido, false);
+            ViewData["TEXTOCIFRADO"] = response;
+            ViewData["SALT"] = HelperCryptography.Salt;
+        }
+        else if (accion.ToLower() == "comparar")
+        {
+            // Use existing salt for comparison
+            string response = HelperCryptography.CifrarContenido(contenido, true);
+            if (response != resultado)
+            {
+                ViewData["MENSAJE"] = "Los datos son distintos...";
+            }
+            else
+            {
+                ViewData["MENSAJE"] = "Los datos son IGUALES!!!";
+            }
+        }
+        return View();
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Usage Examples
+
+### Basic Encryption
+
+```csharp
+using MvcCoreUtilidades.Helpers;
+
+// Encrypt password
+string password = "mySecurePassword123";
+string encrypted = HelperCryptography.EncriptarTextoBasico(password);
+
+// Compare passwords
+string userInput = "mySecurePassword123";
+string encryptedInput = HelperCryptography.EncriptarTextoBasico(userInput);
+
+if (encrypted == encryptedInput)
+{
+    Console.WriteLine("Password is correct");
+}
+else
+{
+    Console.WriteLine("Password is incorrect");
+}
+```
+
+### Efficient Encryption (Recommended)
+
+<Steps>
+  <Step title="Encrypt and store">
+    ```csharp
+    // First time encryption - generate new salt
+    string password = "mySecurePassword123";
+    string encrypted = HelperCryptography.CifrarContenido(password, false);
+    string salt = HelperCryptography.Salt;
+    
+    // Store both 'encrypted' and 'salt' in database
+    // Example:
+    // user.PasswordHash = encrypted;
+    // user.PasswordSalt = salt;
+    ```
+  </Step>
+
+  <Step title="Verify on login">
+    ```csharp
+    // Retrieve stored salt from database
+    string storedSalt = user.PasswordSalt;
+    string storedHash = user.PasswordHash;
+    
+    // Set the salt before comparison
+    HelperCryptography.Salt = storedSalt;
+    
+    // Encrypt user input with existing salt
+    string userInput = "mySecurePassword123";
+    string encryptedInput = HelperCryptography.CifrarContenido(userInput, true);
+    
+    if (encryptedInput == storedHash)
+    {
+        Console.WriteLine("Login successful");
+    }
+    else
+    {
+        Console.WriteLine("Invalid credentials");
+    }
+    ```
+  </Step>
+</Steps>
+
+## Complete Example: User Registration and Login
+
+```csharp
+public class AuthenticationService
+{
+    // Registration
+    public User RegisterUser(string username, string password)
+    {
+        // Encrypt password with new salt
+        string encryptedPassword = HelperCryptography.CifrarContenido(password, false);
+        string salt = HelperCryptography.Salt;
+        
+        var user = new User
+        {
+            Username = username,
+            PasswordHash = encryptedPassword,
+            PasswordSalt = salt,
+            CreatedDate = DateTime.Now
+        };
+        
+        // Save to database
+        _context.Users.Add(user);
+        _context.SaveChanges();
+        
+        return user;
+    }
+    
+    // Login verification
+    public bool ValidateLogin(string username, string password)
+    {
+        var user = _context.Users.FirstOrDefault(u => u.Username == username);
+        
+        if (user == null)
+            return false;
+        
+        // Set the stored salt
+        HelperCryptography.Salt = user.PasswordSalt;
+        
+        // Encrypt input with existing salt
+        string encryptedInput = HelperCryptography.CifrarContenido(password, true);
+        
+        // Compare hashes
+        return encryptedInput == user.PasswordHash;
+    }
+}
+```
+
+## Comparison: Basic vs Efficient
+
+| Feature | Basic Encryption | Efficient Encryption |
+|---------|-----------------|---------------------|
+| Algorithm | SHA1 | SHA512 |
+| Salt | No | Yes (30 chars) |
+| Iterations | 1 | 12 |
+| Security | Low (deprecated) | High |
+| Use Case | Testing only | Production |
+| Speed | Faster | Slower (more secure) |
+
+## Security Considerations
+
+<Warning>
+  **Never use Basic Encryption for passwords**: SHA1 is cryptographically broken and should not be used for password storage in production applications.
+</Warning>
+
+<Note>
+  **Salt Storage**: Always store the salt value alongside the encrypted content. Without the original salt, you cannot verify the content later.
+</Note>
+
+### Best Practices
+
+1. **Use Efficient Encryption** for all password storage
+2. **Store salt securely** in your database alongside the hash
+3. **Never log or display** encrypted passwords or salts
+4. **Use HTTPS** when transmitting passwords
+5. **Consider modern alternatives** like ASP.NET Core Identity or BCrypt for new projects
+
+### Modern Alternative
+
+For new projects, consider using ASP.NET Core Identity's built-in password hasher:
+
+```csharp
+using Microsoft.AspNetCore.Identity;
+
+public class ModernPasswordService
+{
+    private readonly IPasswordHasher<User> _passwordHasher;
+    
+    public ModernPasswordService()
+    {
+        _passwordHasher = new PasswordHasher<User>();
+    }
+    
+    public string HashPassword(User user, string password)
+    {
+        return _passwordHasher.HashPassword(user, password);
+    }
+    
+    public bool VerifyPassword(User user, string hashedPassword, string providedPassword)
+    {
+        var result = _passwordHasher.VerifyHashedPassword(user, hashedPassword, providedPassword);
+        return result == PasswordVerificationResult.Success;
+    }
+}
+```
+
+## Common Pitfalls
+
+### Forgetting to Set Salt for Comparison
+
+```csharp
+// WRONG - Salt not set
+string encrypted = HelperCryptography.CifrarContenido(userInput, true);
+// This will use the last generated salt, which may be incorrect
+
+// CORRECT - Salt explicitly set
+HelperCryptography.Salt = storedSalt;
+string encrypted = HelperCryptography.CifrarContenido(userInput, true);
+```
+
+### Using Basic Encryption for Production
+
+```csharp
+// WRONG - Insecure for production
+string hash = HelperCryptography.EncriptarTextoBasico(password);
+
+// CORRECT - Use efficient encryption
+string hash = HelperCryptography.CifrarContenido(password, false);
+string salt = HelperCryptography.Salt;
+```
+
+## Source Reference
+
+- **HelperCryptography**: `Helpers/HelperCryptography.cs:6`
+- **CifradosController**: `Controllers/CifradosController.cs:6`
+- **CifrarContenido method**: `Helpers/HelperCryptography.cs:24`
+- **EncriptarTextoBasico method**: `Helpers/HelperCryptography.cs:45`

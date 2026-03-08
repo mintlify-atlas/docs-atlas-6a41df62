@@ -1,0 +1,88 @@
+---
+title: UploadFilesController
+description: Controller for handling file uploads in MvcCore Utilidades
+---
+
+## Overview
+
+The `UploadFilesController` provides functionality for uploading files to the server. It uses the `HelperPathProvider` to manage file paths and storage locations.
+
+## Constructor
+
+### UploadFilesController
+
+Initializes a new instance of the controller with path management capabilities.
+
+<ParamField path="helper" type="HelperPathProvider" required>
+  Helper service for mapping file paths and URL paths
+</ParamField>
+
+```csharp
+public UploadFilesController(HelperPathProvider helper)
+```
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/UploadFilesController.cs:10`
+
+## Methods
+
+### Index
+
+Displays the main upload files view.
+
+```csharp
+public IActionResult Index()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the Index view
+</ResponseField>
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/UploadFilesController.cs:15`
+
+---
+
+### SubirFile (GET)
+
+Displays the file upload form.
+
+```csharp
+public IActionResult SubirFile()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the SubirFile view
+</ResponseField>
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/UploadFilesController.cs:20`
+
+---
+
+### SubirFile (POST)
+
+**[HttpPost]**
+
+Handles file upload by saving the file to the server and returning the file path information.
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> SubirFile(IFormFile fichero)
+```
+
+<ParamField path="fichero" type="IFormFile" required>
+  The file to upload from the HTTP request
+</ParamField>
+
+<ResponseField name="IActionResult" type="Task<IActionResult>">
+  Returns the SubirFile view with ViewData containing:
+  - `MENSAJE`: Success message with the file path
+  - `URLPATH`: The URL path where the file can be accessed
+</ResponseField>
+
+**Behavior:**
+- Extracts the filename from the uploaded file
+- Maps the physical path using `HelperPathProvider.MapPath()` with `Folders.Images`
+- Creates a URL path using `HelperPathProvider.MapUrlPath()`
+- Saves the file asynchronously using a `FileStream`
+- Sets ViewData with the file path and URL information
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/UploadFilesController.cs:25`

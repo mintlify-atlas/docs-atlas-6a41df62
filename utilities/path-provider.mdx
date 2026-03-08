@@ -1,0 +1,581 @@
+---
+title: 'Path Provider'
+description: 'Map physical and URL paths for file management'
+icon: 'folder'
+---
+
+## Overview
+
+The `HelperPathProvider` is a utility class that simplifies file path management in ASP.NET Core MVC applications. It provides methods to map physical file system paths and generate full URLs for files stored in predefined folders.
+
+## Key Features
+
+- Convert logical folder names to physical file paths
+- Generate full URLs for accessing files
+- Support for multiple predefined folder types
+- Server address detection for URL generation
+- Integration with ASP.NET Core hosting environment
+
+## HelperPathProvider Class
+
+**Namespace:** `MvcNetCoreUtilidades.Helpers`
+
+**Dependencies:**
+- `IWebHostEnvironment` - Provides access to web root path
+- `IServer` - Provides server address information for URL generation
+
+### Constructor
+
+```csharp
+public HelperPathProvider(IWebHostEnvironment hostEnvironment, IServer server)
+{
+    this.hostEnvironment = hostEnvironment;
+    this.server = server;
+}
+```
+
+## Folders Enumeration
+
+Defines the available folder types for file storage.
+
+```csharp
+public enum Folders
+{
+    Images,      // Maps to 'images' folder
+    facturas,    // Maps to 'facturas' folder
+    Uploads,     // Maps to 'uploads' folder
+    Temporal     // Maps to 'temp' folder
+}
+```
+
+### Folder Mapping
+
+| Enum Value | Physical Folder | Description |
+|------------|----------------|-------------|
+| `Folders.Images` | `images/` | Image files |
+| `Folders.facturas` | `facturas/` | Invoice documents |
+| `Folders.Uploads` | `uploads/` | General file uploads |
+| `Folders.Temporal` | `temp/` | Temporary files |
+
+## Methods
+
+### MapPath
+
+Generates the full physical file system path for a file.
+
+<ParamField path="FileName" type="string" required>
+  The name of the file (including extension)
+</ParamField>
+
+<ParamField path="folder" type="Folders" required>
+  The folder enumeration value where the file should be stored
+</ParamField>
+
+**Returns:** `string` - The complete physical path to the file
+
+```csharp
+public string MapPath(string FileName, Folders folder)
+{
+    string carpeta = "";
+    if (folder == Folders.Images)
+    {
+        carpeta = "images";
+    }
+    else if (folder == Folders.facturas)
+    {
+        carpeta = "facturas";
+    }
+    else if (folder == Folders.Uploads)
+    {
+        carpeta = "uploads";
+    }
+    else if (folder == Folders.Temporal)
+    {
+        carpeta = "temp";
+    }
+
+    string rootPath = this.hostEnvironment.WebRootPath;
+    string path = Path.Combine(rootPath, carpeta, FileName);
+    return path;
+}
+```
+
+**Example:**
+```csharp
+string path = helper.MapPath("profile.jpg", Folders.Images);
+// Result: /var/www/myapp/wwwroot/images/profile.jpg
+```
+
+### MapUrlPath
+
+Generates the full URL for accessing a file through the web server.
+
+<ParamField path="fileName" type="string" required>
+  The name of the file (including extension)
+</ParamField>
+
+<ParamField path="folder" type="Folders" required>
+  The folder enumeration value where the file is stored
+</ParamField>
+
+**Returns:** `string` - The complete URL to access the file
+
+```csharp
+public string MapUrlPath(string fileName, Folders folder)
+{
+    string carpeta = "";
+    if (folder == Folders.Images)
+    {
+        carpeta = "images";
+    }
+    else if (folder == Folders.facturas)
+    {
+        carpeta = "facturas";
+    }
+    else if (folder == Folders.Uploads)
+    {
+        carpeta = "uploads";
+    }
+    else if (folder == Folders.Temporal)
+    {
+        carpeta = "temp";
+    }
+    
+    var adresses = this.server.Features.Get<IServerAddressesFeature>().Addresses;
+    string serverUrl = adresses.FirstOrDefault();
+    string urlPath = serverUrl + "/" + carpeta + "/" + fileName;
+    return urlPath;
+}
+```
+
+**Example:**
+```csharp
+string url = helper.MapUrlPath("profile.jpg", Folders.Images);
+// Result: https://localhost:5001/images/profile.jpg
+```
+
+## Configuration
+
+<Steps>
+  <Step title="Register as singleton">
+    Register `HelperPathProvider` in `Program.cs`:
+
+    ```csharp
+    using MvcNetCoreUtilidades.Helpers;
+
+    var builder = WebApplication.CreateBuilder(args);
+
+    builder.Services.AddSingleton<HelperPathProvider>();
+    
+    builder.Services.AddControllersWithViews();
+    ```
+
+    <Note>
+      Registered as singleton since it has no state and can be reused across requests.
+    </Note>
+  </Step>
+
+  <Step title="Create folder structure">
+    Ensure folders exist in your `wwwroot` directory:
+
+    ```bash
+    wwwroot/
+    ├── images/
+    ├── facturas/
+    ├── uploads/
+    └── temp/
+    ```
+  </Step>
+
+  <Step title="Inject into controllers">
+    Inject through constructor:
+
+    ```csharp
+    public class FilesController : Controller
+    {
+        private readonly HelperPathProvider _pathHelper;
+
+        public FilesController(HelperPathProvider pathHelper)
+        {
+            _pathHelper = pathHelper;
+        }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Usage Examples
+
+### Example 1: File Upload with Path Mapping
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using MvcNetCoreUtilidades.Helpers;
+
+public class UploadController : Controller
+{
+    private readonly HelperPathProvider _helper;
+
+    public UploadController(HelperPathProvider helper)
+    {
+        _helper = helper;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Upload(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded");
+
+        // Get physical path
+        string physicalPath = _helper.MapPath(file.FileName, Folders.Uploads);
+        
+        // Save file
+        using (var stream = new FileStream(physicalPath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        // Get URL for displaying
+        string fileUrl = _helper.MapUrlPath(file.FileName, Folders.Uploads);
+        
+        ViewData["FileUrl"] = fileUrl;
+        ViewData["Message"] = "File uploaded successfully!";
+        
+        return View();
+    }
+}
+```
+
+### Example 2: Image Gallery with URL Generation
+
+```csharp
+public class GalleryController : Controller
+{
+    private readonly HelperPathProvider _helper;
+
+    public GalleryController(HelperPathProvider helper)
+    {
+        _helper = helper;
+    }
+
+    public IActionResult Index()
+    {
+        // Get all image files from images folder
+        string imagesPath = _helper.MapPath("", Folders.Images);
+        var imageFiles = Directory.GetFiles(imagesPath)
+            .Select(Path.GetFileName)
+            .ToList();
+
+        // Generate URLs for each image
+        var imageUrls = imageFiles
+            .Select(fileName => _helper.MapUrlPath(fileName, Folders.Images))
+            .ToList();
+
+        return View(imageUrls);
+    }
+}
+```
+
+### Example 3: Invoice Download Service
+
+```csharp
+public class InvoiceService
+{
+    private readonly HelperPathProvider _helper;
+
+    public InvoiceService(HelperPathProvider helper)
+    {
+        _helper = helper;
+    }
+
+    public async Task<string> GenerateInvoiceAsync(Invoice invoice)
+    {
+        // Generate unique filename
+        string fileName = $"invoice_{invoice.Id}_{DateTime.Now:yyyyMMdd}.pdf";
+        
+        // Get physical path
+        string filePath = _helper.MapPath(fileName, Folders.facturas);
+        
+        // Generate PDF (pseudo-code)
+        await GeneratePdfAsync(invoice, filePath);
+        
+        // Return URL for download
+        return _helper.MapUrlPath(fileName, Folders.facturas);
+    }
+
+    public FileStream GetInvoiceStream(string fileName)
+    {
+        string filePath = _helper.MapPath(fileName, Folders.facturas);
+        
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException("Invoice not found");
+        
+        return new FileStream(filePath, FileMode.Open, FileAccess.Read);
+    }
+}
+```
+
+### Example 4: Temporary File Cleanup
+
+```csharp
+public class FileCleanupService : BackgroundService
+{
+    private readonly HelperPathProvider _helper;
+    private readonly ILogger<FileCleanupService> _logger;
+
+    public FileCleanupService(HelperPathProvider helper, ILogger<FileCleanupService> logger)
+    {
+        _helper = helper;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                CleanupTemporaryFiles();
+                await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during file cleanup");
+            }
+        }
+    }
+
+    private void CleanupTemporaryFiles()
+    {
+        // Get temp folder path
+        string tempPath = _helper.MapPath("", Folders.Temporal);
+        
+        if (!Directory.Exists(tempPath))
+            return;
+
+        var cutoffTime = DateTime.Now.AddHours(-24);
+        var oldFiles = Directory.GetFiles(tempPath)
+            .Where(file => File.GetCreationTime(file) < cutoffTime);
+
+        foreach (var file in oldFiles)
+        {
+            try
+            {
+                File.Delete(file);
+                _logger.LogInformation($"Deleted temporary file: {Path.GetFileName(file)}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Failed to delete file: {file}");
+            }
+        }
+    }
+}
+```
+
+## Advanced Patterns
+
+### Custom Folder Extension
+
+Extend the enum to support custom folders:
+
+```csharp
+// Create your own enum
+public enum CustomFolders
+{
+    Documents,
+    Videos,
+    Archives
+}
+
+// Create extended helper
+public class ExtendedPathProvider : HelperPathProvider
+{
+    public ExtendedPathProvider(IWebHostEnvironment hostEnvironment, IServer server)
+        : base(hostEnvironment, server)
+    {
+    }
+
+    public string MapCustomPath(string fileName, CustomFolders folder)
+    {
+        string folderName = folder switch
+        {
+            CustomFolders.Documents => "documents",
+            CustomFolders.Videos => "videos",
+            CustomFolders.Archives => "archives",
+            _ => throw new ArgumentException("Unknown folder type")
+        };
+
+        string rootPath = hostEnvironment.WebRootPath;
+        return Path.Combine(rootPath, folderName, fileName);
+    }
+}
+```
+
+### Path Validation
+
+Add validation to ensure safe file operations:
+
+```csharp
+public class SafePathProvider
+{
+    private readonly HelperPathProvider _helper;
+
+    public SafePathProvider(HelperPathProvider helper)
+    {
+        _helper = helper;
+    }
+
+    public string GetValidatedPath(string fileName, Folders folder)
+    {
+        // Sanitize filename
+        fileName = Path.GetFileName(fileName); // Remove any path components
+        
+        // Check for invalid characters
+        if (fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            throw new ArgumentException("Filename contains invalid characters");
+
+        // Prevent path traversal
+        if (fileName.Contains(".."))
+            throw new ArgumentException("Path traversal detected");
+
+        return _helper.MapPath(fileName, folder);
+    }
+}
+```
+
+## Best Practices
+
+<Note>
+  **Sanitize filenames**: Always validate and sanitize user-provided filenames before using them with `MapPath` or `MapUrlPath`.
+</Note>
+
+<Warning>
+  **Create folders before use**: Ensure destination folders exist before attempting to save files. Use `Directory.CreateDirectory()` if needed.
+</Warning>
+
+### File Name Sanitization
+
+```csharp
+public string SanitizeFileName(string fileName)
+{
+    // Remove path information
+    fileName = Path.GetFileName(fileName);
+    
+    // Remove invalid characters
+    foreach (char c in Path.GetInvalidFileNameChars())
+    {
+        fileName = fileName.Replace(c, '_');
+    }
+    
+    // Limit length
+    if (fileName.Length > 200)
+        fileName = fileName.Substring(0, 200);
+    
+    return fileName;
+}
+```
+
+### Ensure Folder Exists
+
+```csharp
+public async Task<IActionResult> SaveFile(IFormFile file, Folders folder)
+{
+    string fileName = SanitizeFileName(file.FileName);
+    string filePath = _helper.MapPath(fileName, folder);
+    
+    // Ensure directory exists
+    string directory = Path.GetDirectoryName(filePath);
+    if (!Directory.Exists(directory))
+    {
+        Directory.CreateDirectory(directory);
+    }
+    
+    using (var stream = new FileStream(filePath, FileMode.Create))
+    {
+        await file.CopyToAsync(stream);
+    }
+    
+    return Ok();
+}
+```
+
+### Generate Unique Filenames
+
+```csharp
+public string GenerateUniqueFileName(string originalFileName)
+{
+    string extension = Path.GetExtension(originalFileName);
+    string nameWithoutExtension = Path.GetFileNameWithoutExtension(originalFileName);
+    string uniqueName = $"{nameWithoutExtension}_{Guid.NewGuid()}{extension}";
+    return uniqueName;
+}
+
+// Usage
+string uniqueFileName = GenerateUniqueFileName(file.FileName);
+string path = _helper.MapPath(uniqueFileName, Folders.Images);
+```
+
+## Testing
+
+### Unit Test Example
+
+```csharp
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Moq;
+using Xunit;
+
+public class HelperPathProviderTests
+{
+    [Fact]
+    public void MapPath_ReturnsCorrectPath()
+    {
+        // Arrange
+        var mockEnv = new Mock<IWebHostEnvironment>();
+        mockEnv.Setup(e => e.WebRootPath).Returns("/var/www/app/wwwroot");
+        
+        var mockServer = new Mock<IServer>();
+        var features = new FeatureCollection();
+        var addressFeature = new ServerAddressesFeature();
+        addressFeature.Addresses.Add("https://localhost:5001");
+        features.Set<IServerAddressesFeature>(addressFeature);
+        mockServer.Setup(s => s.Features).Returns(features);
+        
+        var helper = new HelperPathProvider(mockEnv.Object, mockServer.Object);
+        
+        // Act
+        string path = helper.MapPath("test.jpg", Folders.Images);
+        
+        // Assert
+        Assert.Equal("/var/www/app/wwwroot/images/test.jpg", path);
+    }
+    
+    [Fact]
+    public void MapUrlPath_ReturnsCorrectUrl()
+    {
+        // Similar setup as above
+        // ...
+        
+        // Act
+        string url = helper.MapUrlPath("test.jpg", Folders.Images);
+        
+        // Assert
+        Assert.Equal("https://localhost:5001/images/test.jpg", url);
+    }
+}
+```
+
+## Integration with File Upload
+
+See the complete integration example in the [File Uploads documentation](/utilities/file-uploads).
+
+## Source Reference
+
+- **HelperPathProvider class**: `Helpers/HelperPathProvider.cs:11`
+- **Folders enum**: `Helpers/HelperPathProvider.cs:6`
+- **MapPath method**: `Helpers/HelperPathProvider.cs:21`
+- **MapUrlPath method**: `Helpers/HelperPathProvider.cs:46`
+- **Usage in UploadFilesController**: `Controllers/UploadFilesController.cs:30`

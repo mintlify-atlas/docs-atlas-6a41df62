@@ -1,0 +1,371 @@
+---
+title: 'Send Email'
+description: 'Learn how to send emails using SMTP configuration and System.Net.Mail'
+---
+
+This example demonstrates how to send emails in ASP.NET Core using the `SmtpClient` with configuration from `appsettings.json`.
+
+## Overview
+
+The email sending feature allows your application to send HTML emails using SMTP. Configuration is externalized to settings files for easy environment-specific changes.
+
+## Complete Implementation
+
+<Steps>
+  <Step title="Configure Email Settings">
+    Add email configuration to your `appsettings.json` or `appsettings.Development.json`.
+
+    ```json appsettings.json
+    {
+      "MailSettings": {
+        "Credentials": {
+          "User": "your-email@example.com",
+          "Password": "your-app-password"
+        }
+      },
+      "Server": {
+        "Host": "smtp.gmail.com",
+        "Port": 587,
+        "Ssl": true,
+        "DefaultCredentials": false
+      }
+    }
+    ```
+
+    <Warning>
+      Never commit real credentials to source control. Use:
+      - User Secrets for development
+      - Environment variables for production
+      - Azure Key Vault or similar for sensitive data
+    </Warning>
+
+    ### Common SMTP Providers
+
+    | Provider | Host | Port | SSL |
+    |----------|------|------|-----|
+    | Gmail | smtp.gmail.com | 587 | true |
+    | Outlook | smtp-mail.outlook.com | 587 | true |
+    | Office 365 | smtp.office365.com | 587 | true |
+    | SendGrid | smtp.sendgrid.net | 587 | true |
+  </Step>
+
+  <Step title="Create the Mail Controller">
+    The controller reads SMTP settings from configuration and sends emails.
+
+    ```csharp Controllers/MailsController.cs
+    using Microsoft.AspNetCore.Mvc;
+    using System.Net;
+    using System.Net.Mail;
+
+    namespace MvcCoreUtilidades.Controllers
+    {
+        public class MailsController : Controller
+        {
+            private IConfiguration configuration;
+
+            public MailsController(IConfiguration configuration)
+            {
+                this.configuration = configuration;
+            }
+
+            public IActionResult SendMail()
+            {
+                return View();
+            }
+
+            [HttpPost]
+            public async Task<IActionResult> SendMail(string to, string asunto, string mensaje)
+            {
+                string user = this.configuration.GetValue<string>("MailSettings:Credentials:User");
+                MailMessage mail = new MailMessage();
+                mail.From = new MailAddress(user);
+                mail.To.Add(to);
+                mail.Subject = asunto;
+                mail.Body = mensaje;
+                mail.IsBodyHtml = true;
+                mail.Priority = MailPriority.Normal;
+                string password = this.configuration.GetValue<string>("MailSettings:Credentials:Password");
+                string host = this.configuration.GetValue<string>("Server:Host");
+                int port = this.configuration.GetValue<int>("Server:Port");
+                bool ssl = this.configuration.GetValue<bool>("Server:Ssl");
+                bool defaultCredentials = this.configuration.GetValue<bool>("Server:DefaultCredentials");
+                SmtpClient client = new SmtpClient();
+                client.Host = host;
+                client.Port = port;
+                client.EnableSsl = ssl;
+                client.UseDefaultCredentials = defaultCredentials;  // Set BEFORE credentials
+                NetworkCredential credentials = new NetworkCredential(user, password);
+                client.Credentials = credentials;  // Set AFTER
+                await client.SendMailAsync(mail);
+                ViewData["MENSAJE"] = "Mensaje enviado correctamente.";
+                return View();
+            }
+        }
+    }
+    ```
+
+    See [MailsController.cs:21](/api/controllers/mails#sendmail)
+
+    <Info>
+      **Important:** Set `UseDefaultCredentials = false` BEFORE setting custom credentials. The order matters!
+    </Info>
+  </Step>
+
+  <Step title="Create the View">
+    The view provides a form to compose and send emails.
+
+    ```html Views/Mails/SendMail.cshtml
+    <h1>Send Mail Net Core</h1>
+
+    <form method="post" class="my-2">
+        <label>To: </label>
+        <input type="text" name="to" class="form-control" 
+        <label>Asunto: </label>
+        <input type="text" name="asunto" class="form-control" />
+        <label>Mensaje: </label>
+        <textarea name="mensaje" class="form-control"></textarea>
+        <button class="btn btn-info my-2">Send mail</button>
+    </form>
+
+    <h2 style="color:blue">@ViewData["MENSAJE"]</h2>
+    ```
+  </Step>
+
+  <Step title="Inject Configuration Service">
+    The `IConfiguration` service is automatically available via dependency injection.
+
+    ```csharp
+    public MailsController(IConfiguration configuration)
+    {
+        this.configuration = configuration;
+    }
+    ```
+
+    No additional service registration needed - configuration is built-in to ASP.NET Core.
+  </Step>
+</Steps>
+
+## How It Works
+
+### Email Sending Workflow
+
+<CodeGroup>
+```csharp 1. Create Mail Message
+MailMessage mail = new MailMessage();
+mail.From = new MailAddress(user);
+mail.To.Add(to);
+mail.Subject = asunto;
+mail.Body = mensaje;
+mail.IsBodyHtml = true;
+mail.Priority = MailPriority.Normal;
+```
+
+```csharp 2. Configure SMTP Client
+SmtpClient client = new SmtpClient();
+client.Host = host;
+client.Port = port;
+client.EnableSsl = ssl;
+client.UseDefaultCredentials = false;  // Important: Set FIRST
+client.Credentials = new NetworkCredential(user, password);  // Then set credentials
+```
+
+```csharp 3. Send Email Async
+await client.SendMailAsync(mail);
+```
+</CodeGroup>
+
+### Reading Configuration
+
+```csharp
+// Read string value
+string user = this.configuration.GetValue<string>("MailSettings:Credentials:User");
+
+// Read int value
+int port = this.configuration.GetValue<int>("Server:Port");
+
+// Read bool value
+bool ssl = this.configuration.GetValue<bool>("Server:Ssl");
+```
+
+## Usage Example
+
+1. Navigate to `/Mails/SendMail`
+2. Enter recipient email address in "To" field
+3. Enter subject in "Asunto" field
+4. Enter message body (supports HTML) in "Mensaje" field
+5. Click "Send mail"
+6. Success message displays when sent
+
+## Gmail Configuration
+
+For Gmail accounts, you need to use an **App Password** instead of your regular password.
+
+<Steps>
+  <Step title="Enable 2-Factor Authentication">
+    Go to your Google Account settings and enable 2-Step Verification.
+  </Step>
+
+  <Step title="Generate App Password">
+    1. Go to [Google App Passwords](https://myaccount.google.com/apppasswords)
+    2. Select "Mail" and "Other (Custom name)"
+    3. Copy the 16-character password
+  </Step>
+
+  <Step title="Update Configuration">
+    ```json
+    {
+      "MailSettings": {
+        "Credentials": {
+          "User": "your-email@gmail.com",
+          "Password": "your-16-char-app-password"
+        }
+      },
+      "Server": {
+        "Host": "smtp.gmail.com",
+        "Port": 587,
+        "Ssl": true,
+        "DefaultCredentials": false
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Advanced Features
+
+### Sending HTML Emails
+
+```csharp
+mail.Body = @"
+<html>
+  <body>
+    <h1>Welcome!</h1>
+    <p>This is an <strong>HTML email</strong>.</p>
+  </body>
+</html>";
+mail.IsBodyHtml = true;
+```
+
+### Adding Attachments
+
+```csharp
+string filePath = Path.Combine("wwwroot", "documents", "report.pdf");
+Attachment attachment = new Attachment(filePath);
+mail.Attachments.Add(attachment);
+```
+
+### Multiple Recipients
+
+```csharp
+// To
+mail.To.Add("recipient1@example.com");
+mail.To.Add("recipient2@example.com");
+
+// CC
+mail.CC.Add("cc@example.com");
+
+// BCC
+mail.Bcc.Add("bcc@example.com");
+```
+
+### Custom Priority
+
+```csharp
+mail.Priority = MailPriority.High;    // High priority (!)
+mail.Priority = MailPriority.Normal;  // Normal (default)
+mail.Priority = MailPriority.Low;     // Low priority
+```
+
+## Error Handling
+
+<Warning>
+  The current implementation doesn't handle errors. For production, add try-catch:
+</Warning>
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> SendMail(string to, string asunto, string mensaje)
+{
+    try
+    {
+        // ... email sending code ...
+        await client.SendMailAsync(mail);
+        ViewData["MENSAJE"] = "Mensaje enviado correctamente.";
+    }
+    catch (SmtpException ex)
+    {
+        ViewData["MENSAJE"] = $"Error SMTP: {ex.Message}";
+    }
+    catch (Exception ex)
+    {
+        ViewData["MENSAJE"] = $"Error: {ex.Message}";
+    }
+    return View();
+}
+```
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Authentication Failed">
+    **Causes:**
+    - Wrong username/password
+    - Gmail: Not using App Password
+    - 2FA not enabled (Gmail)
+
+    **Solution:**
+    - Verify credentials in appsettings.json
+    - Generate and use App Password for Gmail
+  </Accordion>
+
+  <Accordion title="Connection Refused / Timeout">
+    **Causes:**
+    - Wrong host or port
+    - SSL setting mismatch
+    - Firewall blocking SMTP
+
+    **Solution:**
+    - Verify host and port for your provider
+    - Check SSL setting matches provider requirements
+    - Test SMTP connectivity from your server
+  </Accordion>
+
+  <Accordion title="UseDefaultCredentials Error">
+    **Cause:**
+    - Setting custom credentials before `UseDefaultCredentials = false`
+
+    **Solution:**
+    - Always set `UseDefaultCredentials = false` FIRST
+    - Then set `Credentials` property
+  </Accordion>
+</AccordionGroup>
+
+## Production Recommendations
+
+<Check>
+  **Best Practices:**
+  - Use dedicated email service (SendGrid, AWS SES, etc.)
+  - Implement email queue for reliability
+  - Add retry logic for failed sends
+  - Log email sending attempts
+  - Validate email addresses before sending
+  - Rate limit to prevent abuse
+</Check>
+
+<Info>
+  **Alternative:** Consider using dedicated email libraries like:
+  - MailKit (modern, cross-platform)
+  - FluentEmail (fluent interface)
+  - SendGrid SDK (if using SendGrid)
+</Info>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="MailsController" icon="envelope" href="/api/controllers/mails">
+    Complete API reference for email controller
+  </Card>
+  <Card title="Email Utility" icon="gear" href="/utilities/email">
+    Learn more about email configuration and features
+  </Card>
+</CardGroup>

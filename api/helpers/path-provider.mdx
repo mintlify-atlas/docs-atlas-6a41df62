@@ -1,0 +1,126 @@
+---
+title: HelperPathProvider
+description: Helper class for mapping file paths and URLs in the web application
+---
+
+## Overview
+
+The `HelperPathProvider` class provides methods to map file names to physical paths and URL paths within the web application's folder structure. It supports multiple predefined folders for organizing different types of files.
+
+**Namespace:** `MvcNetCoreUtilidades.Helpers`
+
+## Folders Enum
+
+```csharp
+public enum Folders
+{
+    Images,
+    facturas,
+    Uploads,
+    Temporal
+}
+```
+
+Defines the available folder types for file operations:
+
+- `Images` - Maps to "images" folder
+- `facturas` - Maps to "facturas" folder
+- `Uploads` - Maps to "uploads" folder
+- `Temporal` - Maps to "temp" folder
+
+## Constructor
+
+```csharp
+public HelperPathProvider(IWebHostEnvironment hostEnvironment, IServer server)
+```
+
+Initializes a new instance of the `HelperPathProvider` class.
+
+<ParamField path="hostEnvironment" type="IWebHostEnvironment" required>
+  The web host environment used to access the application's root path
+</ParamField>
+
+<ParamField path="server" type="IServer" required>
+  The server instance used to access server addresses for URL generation
+</ParamField>
+
+## Methods
+
+### MapPath
+
+```csharp
+public string MapPath(string FileName, Folders folder)
+```
+
+Maps a file name to its physical path on the server's file system.
+
+<ParamField path="FileName" type="string" required>
+  The name of the file (including extension)
+</ParamField>
+
+<ParamField path="folder" type="Folders" required>
+  The folder type where the file is located (from the `Folders` enum)
+</ParamField>
+
+**Returns:** `string` - The complete physical path to the file
+
+**Usage:**
+```csharp
+string path = pathProvider.MapPath("logo.png", Folders.Images);
+// Returns: /wwwroot/images/logo.png
+```
+
+### MapUrlPath
+
+```csharp
+public string MapUrlPath(string fileName, Folders folder)
+```
+
+Maps a file name to its URL path accessible via HTTP.
+
+<ParamField path="fileName" type="string" required>
+  The name of the file (including extension)
+</ParamField>
+
+<ParamField path="folder" type="Folders" required>
+  The folder type where the file is located (from the `Folders` enum)
+</ParamField>
+
+**Returns:** `string` - The complete URL path to the file
+
+**Usage:**
+```csharp
+string url = pathProvider.MapUrlPath("logo.png", Folders.Images);
+// Returns: http://localhost:5000/images/logo.png
+```
+
+## Folder Mappings
+
+| Enum Value | Physical Folder |
+|------------|----------------|
+| `Folders.Images` | images |
+| `Folders.facturas` | facturas |
+| `Folders.Uploads` | uploads |
+| `Folders.Temporal` | temp |
+
+## Dependency Injection
+
+Register the helper in your `Program.cs`:
+
+```csharp
+builder.Services.AddTransient<HelperPathProvider>();
+```
+
+Then inject it into your controllers or services:
+
+```csharp
+public class UploadFilesController : Controller
+{
+    private HelperPathProvider pathProvider;
+    
+    public UploadFilesController(HelperPathProvider pathProvider)
+    {
+        this.pathProvider = pathProvider;
+    }
+}
+```

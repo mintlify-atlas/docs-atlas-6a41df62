@@ -1,0 +1,96 @@
+---
+title: CachingController
+description: Controller for memory caching operations in MvcCore Utilidades
+---
+
+## Overview
+
+The `CachingController` demonstrates in-memory caching using `IMemoryCache` for personalized caching and `ResponseCache` attribute for distributed caching.
+
+## Constructor
+
+### CachingController
+
+Initializes a new instance of the controller with memory cache support.
+
+<ParamField path="memoryCache" type="IMemoryCache" required>
+  Memory cache service for storing and retrieving cached data
+</ParamField>
+
+```csharp
+public CachingController(IMemoryCache memoryCache)
+```
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CachingController.cs:10`
+
+## Methods
+
+### Index
+
+Displays the main caching view.
+
+```csharp
+public IActionResult Index()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the Index view
+</ResponseField>
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CachingController.cs:14`
+
+---
+
+### MemoriaPersonalizada
+
+Stores or retrieves a timestamp in memory cache with customizable expiration time.
+
+```csharp
+public IActionResult MemoriaPersonalizada(int? tiempo)
+```
+
+<ParamField path="tiempo" type="int?">
+  The cache expiration time in seconds. Defaults to 60 seconds if not provided
+</ParamField>
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the MemoriaPersonalizada view with ViewData containing:
+  - `MENSAJE`: Indicates whether the date was stored or retrieved
+  - `FECHA`: The cached timestamp in long date and time format
+</ResponseField>
+
+**Behavior:**
+- If "FECHA" is not in cache:
+  - Creates a new timestamp
+  - Stores it in cache with absolute expiration based on `tiempo` parameter
+  - Sets ViewData with "Fecha almacenada correctamente" message
+- If "FECHA" exists in cache:
+  - Retrieves the cached timestamp
+  - Sets ViewData with "Fecha recuperada correctamente" message
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CachingController.cs:19`
+
+---
+
+### MemoriaDistribuida
+
+**[ResponseCache(Duration = 15, Location = ResponseCacheLocation.Client)]**
+
+Demonstrates client-side response caching with a 15-second duration.
+
+```csharp
+[ResponseCache(Duration = 15, Location = ResponseCacheLocation.Client)]
+public IActionResult MemoriaDistribuida()
+```
+
+<ResponseField name="IActionResult" type="IActionResult">
+  Returns the MemoriaDistribuida view with ViewData containing:
+  - `FECHA`: Current timestamp in long date and time format
+</ResponseField>
+
+**Behavior:**
+- Generates a current timestamp
+- Returns the view which will be cached on the client side for 15 seconds
+- The response cache is managed by the framework based on the attribute settings
+
+**Source:** `/workspace/source/MvcCoreUtilidades/Controllers/CachingController.cs:42`

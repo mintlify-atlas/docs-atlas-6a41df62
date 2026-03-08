@@ -1,0 +1,126 @@
+---
+title: Coche
+description: Model class representing a car entity
+---
+
+## Overview
+
+The `Coche` class is a data model that represents a car entity in the MvcCoreUtilidades application. It contains basic information about a car including its identifier, brand, model, and image.
+
+**Namespace:** `MvcCoreUtilidades.Models`
+
+## Properties
+
+### IdCoche
+
+```csharp
+public int IdCoche { get; set; }
+```
+
+Unique identifier for the car.
+
+**Type:** `int`
+
+### Marca
+
+```csharp
+public string Marca { get; set; }
+```
+
+The brand or manufacturer of the car (e.g., "Ford", "Ferrari", "Volkswagen").
+
+**Type:** `string`
+
+### Modelo
+
+```csharp
+public string Modelo { get; set; }
+```
+
+The model name of the car (e.g., "Mustang GT", "Testarrosa", "Escarabajo").
+
+**Type:** `string`
+
+### Imagen
+
+```csharp
+public string Imagen { get; set; }
+```
+
+The URL or path to the car's image.
+
+**Type:** `string`
+
+## Usage
+
+### Creating a New Instance
+
+```csharp
+var coche = new Coche
+{
+    IdCoche = 1,
+    Marca = "Ford",
+    Modelo = "Mustang GT",
+    Imagen = "https://example.com/mustang.jpg"
+};
+```
+
+### Using with Repository
+
+```csharp
+var repository = new RepositoryCoches();
+Coche coche = repository.FindCoche(1);
+
+Console.WriteLine($"Car: {coche.Marca} {coche.Modelo}");
+Console.WriteLine($"Image: {coche.Imagen}");
+```
+
+### Using in Views
+
+```cshtml
+@model Coche
+
+<div class="car-details">
+    <h2>@Model.Marca @Model.Modelo</h2>
+    <img src="@Model.Imagen" alt="@Model.Marca @Model.Modelo" />
+    <p>Car ID: @Model.IdCoche</p>
+</div>
+```
+
+## Example Objects
+
+Here are some example car objects used in the application:
+
+```csharp
+new Coche 
+{ 
+    IdCoche = 1, 
+    Marca = "Pontiac", 
+    Modelo = "Firebird", 
+    Imagen = "https://imagenes.topgear.es/files/image_1920_1080/uploads/imagenes/2023/06/26/68ca8307d8bc8.jpeg"
+}
+
+new Coche 
+{ 
+    IdCoche = 2, 
+    Marca = "Volkswagen", 
+    Modelo = "Escarabajo", 
+    Imagen = "https://www.qonecta.com/documents/80345/95274/herbie-el-volkswagen-beetle-mas.jpg"
+}
+
+new Coche 
+{ 
+    IdCoche = 3, 
+    Marca = "Ferrari", 
+    Modelo = "Testarrosa", 
+    Imagen = "https://www.lavanguardia.com/files/article_main_microformat/uploads/2017/01/03/5f15f8b7c1229.png"
+}
+
+new Coche 
+{ 
+    IdCoche = 4, 
+    Marca = "Ford", 
+    Modelo = "Mustang GT", 
+    Imagen = "https://imagenes.autobild.es/files/image_1280_720/uploads/imagenes/2023/05/29/68ce5355f1c08.jpeg"
+}
+```
