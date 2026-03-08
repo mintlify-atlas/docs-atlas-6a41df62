@@ -1,0 +1,102 @@
+{
+  "projectType": "framework",
+  "projectName": "MvcCore Utilidades",
+  "projectDescription": "A collection of essential utilities and helpers for ASP.NET Core MVC applications",
+  "theme": "linden",
+  "primaryColor": "#512BD4",
+  "lightColor": "#7B5FC7",
+  "darkColor": "#3A1FA3",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Utilities",
+            "pages": [
+              "utilities/file-uploads",
+              "utilities/cryptography",
+              "utilities/caching",
+              "utilities/email",
+              "utilities/path-provider"
+            ]
+          },
+          {
+            "group": "Examples",
+            "pages": [
+              "examples/upload-files",
+              "examples/encrypt-data",
+              "examples/cache-management",
+              "examples/send-email"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Controllers",
+            "pages": [
+              "api/controllers/upload-files",
+              "api/controllers/cifrados",
+              "api/controllers/caching",
+              "api/controllers/mails",
+              "api/controllers/coches"
+            ]
+          },
+          {
+            "group": "Helpers",
+            "pages": [
+              "api/helpers/cryptography",
+              "api/helpers/path-provider"
+            ]
+          },
+          {
+            "group": "Repositories",
+            "pages": [
+              "api/repositories/coches"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api/models/coche"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "File upload management with path resolution",
+    "Cryptography utilities (SHA1, SHA512 encryption)",
+    "Memory and distributed caching",
+    "Email sending with SMTP configuration",
+    "Path mapping for web resources",
+    "Session management",
+    "ViewComponents for dynamic menus"
+  ],
+  "publicApiSurface": [
+    "HelperCryptography.CifrarContenido()",
+    "HelperCryptography.EncriptarTextoBasico()",
+    "HelperPathProvider.MapPath()",
+    "HelperPathProvider.MapUrlPath()",
+    "UploadFilesController.SubirFile()",
+    "CifradosController.CifradoBasico()",
+    "CifradosController.CifradoEficiente()",
+    "CachingController.MemoriaPersonalizada()",
+    "CachingController.MemoriaDistribuida()",
+    "MailsController.SendMail()",
+    "RepositoryCoches.GetCoches()",
+    "RepositoryCoches.FindCoche()"
+  ]
+}
