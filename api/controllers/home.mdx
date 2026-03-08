@@ -1,0 +1,155 @@
+---
+title: HomeController
+description: API reference for the HomeController including session management
+---
+
+# HomeController
+
+The `HomeController` provides basic application navigation and session management functionality.
+
+## Source
+
+```csharp Controllers/HomeController.cs
+using Microsoft.AspNetCore.Mvc;
+using MvcCoreUtilidades.Models;
+using System.Diagnostics;
+
+namespace MvcCoreUtilidades.Controllers
+{
+    public class HomeController : Controller
+    {
+        // ... methods documented below
+    }
+}
+```
+
+## Methods
+
+### Index
+
+Returns the main home page view.
+
+```csharp
+public IActionResult Index()
+```
+
+**Returns:** `IActionResult` - The home page view
+
+---
+
+### Privacy
+
+Returns the privacy policy page view.
+
+```csharp
+public IActionResult Privacy()
+```
+
+**Returns:** `IActionResult` - The privacy view
+
+---
+
+### Error
+
+Handles application errors and displays the error page with diagnostic information.
+
+```csharp
+[ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+public IActionResult Error()
+```
+
+**Attributes:**
+- `[ResponseCache]` - Disables caching for error pages
+
+**Returns:** `IActionResult` - Error view with `ErrorViewModel` containing request ID
+
+**Usage:**
+
+```csharp
+return View(new ErrorViewModel { 
+    RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier 
+});
+```
+
+---
+
+### LogIn (GET)
+
+Displays the login form.
+
+```csharp
+public IActionResult LogIn()
+```
+
+**Returns:** `IActionResult` - The login view
+
+---
+
+### LogIn (POST)
+
+Processes user login and stores the username in session.
+
+```csharp
+[HttpPost]
+public IActionResult LogIn(string usuario)
+```
+
+<ParamField path="usuario" type="string" required>
+  The username to store in session
+</ParamField>
+
+**Returns:** `IActionResult` - The login view with success message
+
+**Session Storage:**
+
+```csharp
+HttpContext.Session.SetString("USUARIO", usuario);
+ViewData["MENSAJE"] = "Usuario en el sistema";
+```
+
+---
+
+### LogOut
+
+Clears the user session and redirects to home page.
+
+```csharp
+public IActionResult LogOut(string usuario)
+```
+
+<ParamField path="usuario" type="string">
+  Username parameter (not used in implementation)
+</ParamField>
+
+**Returns:** `IActionResult` - Redirect to Index action
+
+**Session Removal:**
+
+```csharp
+HttpContext.Session.Remove("USUARIO");
+return RedirectToAction("Index");
+```
+
+## Session Configuration
+
+For session management to work, ensure session middleware is configured in `Program.cs`:
+
+```csharp Program.cs
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession();
+
+// ...
+
+app.UseSession();
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Session Management Example" icon="user" href="/quickstart#session-management">
+    See complete session implementation
+  </Card>
+  <Card title="ErrorViewModel" icon="triangle-exclamation" href="/api/models/error-view-model">
+    Error model documentation
+  </Card>
+</CardGroup>

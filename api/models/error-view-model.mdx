@@ -1,0 +1,126 @@
+---
+title: ErrorViewModel
+description: API reference for the ErrorViewModel model used in error handling
+---
+
+# ErrorViewModel
+
+The `ErrorViewModel` is used to display error information in the error view, including request tracking details.
+
+## Source
+
+```csharp Models/ErrorViewModel.cs
+namespace MvcCoreUtilidades.Models
+{
+    public class ErrorViewModel
+    {
+        public string? RequestId { get; set; }
+
+        public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+    }
+}
+```
+
+## Properties
+
+### RequestId
+
+<ParamField path="RequestId" type="string?">
+  The unique identifier for the current request, used for error tracking and diagnostics
+</ParamField>
+
+**Type:** `string?` (nullable)
+
+**Usage:**
+
+```csharp
+var model = new ErrorViewModel 
+{ 
+    RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier 
+};
+```
+
+---
+
+### ShowRequestId
+
+<ParamField path="ShowRequestId" type="bool">
+  Computed property that indicates whether the RequestId should be displayed
+</ParamField>
+
+**Type:** `bool` (read-only)
+
+**Behavior:** Returns `true` if `RequestId` is not null or empty, `false` otherwise
+
+**Usage in View:**
+
+```html Views/Shared/Error.cshtml
+@model ErrorViewModel
+
+@if (Model.ShowRequestId)
+{
+    <p>
+        <strong>Request ID:</strong> @Model.RequestId
+    </p>
+}
+```
+
+## Usage Example
+
+### In Controller
+
+```csharp Controllers/HomeController.cs
+[ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+public IActionResult Error()
+{
+    return View(new ErrorViewModel 
+    { 
+        RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier 
+    });
+}
+```
+
+### In Error View
+
+```html Views/Shared/Error.cshtml
+@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<h1 class="text-danger">Error.</h1>
+<h2 class="text-danger">An error occurred while processing your request.</h2>
+
+@if (Model.ShowRequestId)
+{
+    <p>
+        <strong>Request ID:</strong> <code>@Model.RequestId</code>
+    </p>
+}
+
+<h3>Development Mode</h3>
+<p>
+    Swapping to <strong>Development</strong> environment will display more detailed 
+    information about the error that occurred.
+</p>
+```
+
+## Request ID Sources
+
+The `RequestId` is populated from two possible sources:
+
+1. **Activity.Current?.Id** - Distributed tracing identifier from the current activity
+2. **HttpContext.TraceIdentifier** - Fallback request identifier from ASP.NET Core
+
+This ensures every error can be traced back to a specific request for debugging purposes.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="HomeController" icon="house" href="/api/controllers/home">
+    See Error action implementation
+  </Card>
+  <Card title="Error Handling" icon="shield-exclamation" href="/installation#troubleshooting">
+    Learn about error handling in ASP.NET Core
+  </Card>
+</CardGroup>

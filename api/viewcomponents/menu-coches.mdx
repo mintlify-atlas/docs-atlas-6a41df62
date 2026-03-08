@@ -1,0 +1,164 @@
+---
+title: MenuCochesViewComponent
+description: API reference for the MenuCochesViewComponent for dynamic car menus
+---
+
+# MenuCochesViewComponent
+
+The `MenuCochesViewComponent` is a view component that renders a dynamic menu of cars using the `RepositoryCoches` data source.
+
+## Source
+
+```csharp ViewComponents/MenuCochesViewComponent.cs
+using Microsoft.AspNetCore.Mvc;
+using MvcCoreUtilidades.Models;
+using MvcCoreUtilidades.Repositories;
+
+namespace MvcCoreUtilidades.ViewComponents
+{
+    public class MenuCochesViewComponent : ViewComponent
+    {
+        private RepositoryCoches repo;
+
+        public MenuCochesViewComponent(RepositoryCoches repo)
+        {
+            this.repo = repo;
+        }
+
+        public async Task<IViewComponentResult> InvokeAsync()
+        {
+            List<Coche> cars = this.repo.GetCoches();
+            return View(cars);
+        }
+    }
+}
+```
+
+## Constructor
+
+### MenuCochesViewComponent
+
+Initializes the view component with repository dependency injection.
+
+```csharp
+public MenuCochesViewComponent(RepositoryCoches repo)
+```
+
+<ParamField path="repo" type="RepositoryCoches" required>
+  The repository instance for accessing car data
+</ParamField>
+
+**Dependency Injection:** The `RepositoryCoches` is automatically injected by the ASP.NET Core DI container.
+
+---
+
+## Methods
+
+### InvokeAsync
+
+Retrieves the list of cars and passes it to the view component view.
+
+```csharp
+public async Task<IViewComponentResult> InvokeAsync()
+```
+
+**Returns:** `Task<IViewComponentResult>` - Asynchronous result containing the view with car data
+
+**Implementation:**
+
+```csharp
+List<Coche> cars = this.repo.GetCoches();
+return View(cars);
+```
+
+## Usage
+
+### Invoking in a View
+
+You can invoke this view component in any Razor view using the `Component.InvokeAsync` method:
+
+```html
+@await Component.InvokeAsync("MenuCoches")
+```
+
+Or using the tag helper syntax:
+
+```html
+<vc:menu-coches></vc:menu-coches>
+```
+
+### Creating the View Component View
+
+Create a view at `Views/Shared/Components/MenuCoches/Default.cshtml`:
+
+```html Views/Shared/Components/MenuCoches/Default.cshtml
+@model List<Coche>
+
+<ul class="nav flex-column">
+    @foreach (var car in Model)
+    {
+        <li class="nav-item">
+            <a class="nav-link" asp-controller="Coches" 
+               asp-action="Details" asp-route-idcoche="@car.IdCoche">
+                @car.Marca @car.Modelo
+            </a>
+        </li>
+    }
+</ul>
+```
+
+## Complete Example
+
+### Layout with View Component
+
+```html Views/Shared/_Layout.cshtml
+<!DOCTYPE html>
+<html>
+<head>
+    <title>@ViewData["Title"]</title>
+</head>
+<body>
+    <nav class="sidebar">
+        <h3>Car Menu</h3>
+        @await Component.InvokeAsync("MenuCoches")
+    </nav>
+    
+    <main>
+        @RenderBody()
+    </main>
+</body>
+</html>
+```
+
+### Service Registration
+
+Ensure the repository is registered in `Program.cs`:
+
+```csharp Program.cs
+builder.Services.AddTransient<RepositoryCoches>();
+```
+
+## Benefits of View Components
+
+- **Reusable Logic:** Encapsulates rendering logic that can be used across multiple views
+- **Testable:** Can be unit tested independently from controllers
+- **Dependency Injection:** Supports constructor injection for data access
+- **Asynchronous:** Supports async data loading with `InvokeAsync`
+- **Isolated:** Doesn't use model binding or participate in controller lifecycle
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="RepositoryCoches" icon="database" href="/api/repositories/coches">
+    Car repository used by this component
+  </Card>
+  <Card title="Coche Model" icon="car" href="/api/models/coche">
+    Car model documentation
+  </Card>
+  <Card title="CochesController" icon="code" href="/api/controllers/coches">
+    Controller for car operations
+  </Card>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart#view-components">
+    See view component usage examples
+  </Card>
+</CardGroup>

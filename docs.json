@@ -58,6 +58,7 @@
           {
             "group": "Controllers",
             "pages": [
+              "api/controllers/home",
               "api/controllers/upload-files",
               "api/controllers/cifrados",
               "api/controllers/caching",
@@ -81,7 +82,14 @@
           {
             "group": "Models",
             "pages": [
-              "api/models/coche"
+              "api/models/coche",
+              "api/models/error-view-model"
+            ]
+          },
+          {
+            "group": "ViewComponents",
+            "pages": [
+              "api/viewcomponents/menu-coches"
             ]
           }
         ]
